@@ -29,9 +29,8 @@ JavaScript (Vanilla): Логика расчетов, динамическая г
 WebP: Оптимизированные изображения для быстрой загрузки.
 
 # 📸 Скриншоты
-Markdown
-![Interface Preview](img/preview.png)
-![Interface Preview2](img/preview2.png)
+![Главное меню](preview.png)
+![Главное меню с Калькулятором урона](preview2.png)
 
 # 🤝 Авторство
 Designed & Developed by perrfecct.
