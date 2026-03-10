@@ -6,7 +6,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-deep: #121212; /* Чуть темнее для контраста со свечением */
+            --bg-deep: #121212;
             --bg-panel: #1e1e1e;
             --bg-list: #181818;
             --accent: #ffffff;
@@ -208,9 +208,8 @@
             border-radius: 2px;
         }
 		
-		/* --- ЗАГЛУШКА КАЛЬКУЛЯТОРА --- */
         .calc-disabled-overlay {
-            display: none; /* Скрыто по умолчанию */
+            display: none;
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             background: var(--bg-list);
@@ -223,7 +222,7 @@
         }
 
         .calc-disabled-overlay.visible {
-            display: flex; /* Показывается, когда добавляем класс .visible */
+            display: flex;
         }
     </style>
 </head>
@@ -305,7 +304,6 @@
 <script>
 let curWeaponMode = "", curWeaponData = null, isCalcOpen = false;
 
-// Список врагов у которых блокируется кнопка "удар по спящему"
 const awakeEnemies = [
     "SCOUT", 
     "CHARGER SCOUT", 
@@ -418,7 +416,6 @@ function createStatCard(name, value) {
         </div>`;
 }
 
-// Функция для проверки доступности калькулятора
 function checkCalcAvailability() {
     const overlay = document.getElementById('calcDisabledOverlay');
     if (!overlay) return;
@@ -427,9 +424,9 @@ function checkCalcAvailability() {
     const activeTab = activeTabBtn ? activeTabBtn.innerText : "";
 
     if (activeTab === "ВРАГИ") {
-        overlay.classList.add('visible'); // Показываем заглушку
+        overlay.classList.add('visible');
     } else {
-        overlay.classList.remove('visible'); // Прячем заглушку
+        overlay.classList.remove('visible');
     }
 }
 
@@ -438,7 +435,6 @@ function toggleCalc() {
     document.getElementById('mainTrain').classList.toggle('open', isCalcOpen);
     document.getElementById('calcBtn').classList.toggle('active', isCalcOpen);
     
-    // Проверяем доступность при открытии
     if (isCalcOpen) {
         checkCalcAvailability();
     }
@@ -455,7 +451,6 @@ function renderNav() {
             btn.classList.add('active'); 
             renderList(c); 
             
-            // Если калькулятор открыт в момент смены вкладки — проверяем, нужно ли показать заглушку
             if (isCalcOpen) {
                 checkCalcAvailability();
             }
@@ -543,7 +538,6 @@ function parseStun(val) {
     return parseFloat(val) || 0;
 }
 
-// Глобальная навигация для страниц калькулятора
 if (typeof window.currentCalcPage === 'undefined') {
     window.currentCalcPage = 0;
     window.switchCalcPage = function(dir) {
@@ -554,32 +548,24 @@ if (typeof window.currentCalcPage === 'undefined') {
     };
 }
 
-    // Автоматическое масштабирование интерфейса
 function autoScaleApp() {
     const wrapper = document.getElementById('scaleWrapper');
     if (!wrapper) return;
 
-    // Задаем базовые "безопасные" размеры. 
-    // Учитываем ширину базы (1020) + ширину открытого калькулятора (340) + небольшие отступы.
     const safeWidth = 1400; 
     const safeHeight = 800; 
 
-    // Высчитываем коэффициент масштабирования
     let scale = Math.min(
         window.innerWidth / safeWidth,
         window.innerHeight / safeHeight
     );
 
-    // Ограничиваем масштаб: не увеличиваем больше 1.1x (чтобы на 4K не было гигантским)
-    // и не уменьшаем меньше 0.4x (чтобы оставалось читаемым)
     if (scale > 1.1) scale = 1.1;
     if (scale < 0.4) scale = 0.4;
 
-    // Применяем масштаб
     wrapper.style.transform = `scale(${scale})`;
 }
 
-// Запускаем пересчет при загрузке страницы и при каждом изменении размера окна
 window.addEventListener('resize', autoScaleApp);
 autoScaleApp();
 
@@ -599,10 +585,8 @@ function updateCalcByEnemy() {
     const enemy = database["ВРАГИ"][enemyIdx];
     if (!enemy) return;
 
-    //     // Логика минимализма для интерфейса оружия ближнего боя
     let sleepBtn = document.getElementById('meleeSleep');
     if (sleepBtn) {
-        // Уменьшаем шрифт описания чекбокса
         sleepBtn.parentElement.style.fontSize = "10px";
         if (typeof awakeEnemies !== 'undefined' && awakeEnemies.includes(enemy.n1)) {
             sleepBtn.checked = false; 
@@ -646,7 +630,6 @@ function updateCalcByEnemy() {
         hpLineText = `<span style="color: var(--text-dim)">ЗДОРОВЬЕ: </span><span style="color: var(--accent)">${enemyHp}</span> <span style="color: var(--text-dim)">HP</span>`;
     }
 
-    // Рендер верхней части
     document.getElementById('enemyFrameContent').innerHTML = `
         <div class="scanner-grid"></div>
         <div class="scanner-line"></div>
@@ -667,7 +650,6 @@ function updateCalcByEnemy() {
         if (mUi) mUi.style.display = "block";
         if (rUi) rUi.style.display = "none";
         
-        // Настройка процентов зарядки
         document.getElementById('meleeCharge').previousElementSibling.innerHTML = 
             `<span style="color:var(--accent)">0</span><span style="color:var(--text-dim)">%</span>`;
         document.getElementById('meleeCharge').nextElementSibling.innerHTML = 
@@ -726,7 +708,6 @@ function updateCalcByEnemy() {
         dmgOcciput = dmgHead * 2;
     }
 
-    // Функция форматирования точки с описанием
     function getPageValue(dmg, bodyPart) {
         let stunD = dmg * stunMult;
         let killS = (dmg > 0) ? Math.ceil(enemyHp / dmg) : "-";
@@ -780,5 +761,4 @@ renderNav();
 renderList("ОСНОВНОЕ ОРУЖИЕ");
 </script>
 </body>
-
 </html>
