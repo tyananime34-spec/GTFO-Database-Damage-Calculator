@@ -22,7 +22,7 @@
 Откройте файл index.html в любом современном браузере.
 
 Либо откройте ссылку
-https://tyananime34-spec.github.io/GTFO-Database-Damage-Calculator/
+[GTFO DATABASE & DAMAGE CALCULATOR](https://tyananime34-spec.github.io/GTFO-Database-Damage-Calculator/)
 
 # 🛠️ Технологии
 HTML5 / CSS3: Кастомная верстка с использованием CSS-переменных и Flexbox.
