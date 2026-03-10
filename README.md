@@ -1,4 +1,4 @@
-# 🛠️ GTFO DATABASE & DAMAGE CALCULATOR
+# 🛠️ GTFO Database & Damage Calculator
 Интерактивный справочник и калькулятор урона для игры GTFO. Создан для быстрого анализа характеристик оружия и расчета эффективности против различных типов врагов.
 
 # ✨ Основные возможности
@@ -23,7 +23,7 @@
 
 Либо откройте ссылку ниже.
 
-[GTFO DATABASE & DAMAGE CALCULATOR](https://tyananime34-spec.github.io/GTFO-Database-Damage-Calculator/)
+[GTFO Database & Damage Calculator](https://tyananime34-spec.github.io/GTFO-Database-Damage-Calculator/)
 
 # 🛠️ Технологии
 HTML5 / CSS3: Кастомная верстка с использованием CSS-переменных и Flexbox.
