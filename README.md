@@ -21,7 +21,8 @@
 
 Откройте файл index.html в любом современном браузере.
 
-Либо откройте ссылку
+Либо откройте ссылку ниже.
+
 [GTFO DATABASE & DAMAGE CALCULATOR](https://tyananime34-spec.github.io/GTFO-Database-Damage-Calculator/)
 
 # 🛠️ Технологии
