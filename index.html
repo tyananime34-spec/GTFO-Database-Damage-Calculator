@@ -4,265 +4,226 @@
     <meta charset="UTF-8">
     <title>GTFO Database & Damage Calculator</title>
     <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;900&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-deep: #121212;
-            --bg-panel: #1e1e1e;
-            --bg-list: #181818;
-            --accent: #ffffff;
-            --text-dim: #777777;
-            --item-height: 85px;
-            --calc-width: 340px;
-            --main-width: 1020px;
-            --main-height: 756px;
-            --card-height: 60px; 
-        }
-
-        * { box-sizing: border-box; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+<style>
+    /* 1. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И БАЗОВЫЕ СТИЛИ */
+    :root {
+        --bg-deep: #121212;
+        --bg-panel: #1e1e1e;
+        --bg-list: #181818;
+        --accent: #ffffff;
+        --text-dim: #777777;
+        --glow: 0 0 10px rgba(255,255,255,0.2);
         
-        body {
-            background-color: var(--bg-deep);
-            color: var(--accent);
-            font-family: 'Exo 2', sans-serif;
-            height: 100vh; margin: 0;
-            display: flex; justify-content: center; align-items: center;
-            text-transform: uppercase; overflow: hidden;
-        }
+        --item-height: 85px;
+        --calc-width: 340px;
+        --main-width: 1020px;
+        --main-height: 756px;
+        --card-height: 60px; 
+    }
 
-        .crt-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.10) 50%);
-            background-size: 100% 4px;
-            z-index: 9999;
-            pointer-events: none;
-            animation: flicker 0.15s infinite;
-        }
+    * { 
+        box-sizing: border-box; 
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+    }
+    
+    body {
+        background-color: var(--bg-deep);
+        color: var(--accent);
+        font-family: 'Exo 2', sans-serif;
+        height: 100vh; margin: 0;
+        display: flex; justify-content: center; align-items: center;
+        text-transform: uppercase; overflow: hidden;
+    }
 
-        @keyframes flicker {
-            0% { opacity: 0.95; }
-            50% { opacity: 1; }
-            100% { opacity: 0.98; }
-        }
+    /* 2. ЭФФЕКТЫ ТЕРМИНАЛА (CRT, СКАНЕР, АНИМАЦИИ) */
+    .crt-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.10) 50%);
+        background-size: 100% 4px;
+        z-index: 9999;
+        pointer-events: none;
+        animation: flicker 0.15s infinite;
+    }
 
-        .terminal-layout-train { position: relative; width: var(--main-width); height: var(--main-height); display: flex; }
-        .terminal-layout-train.open { transform: translateX(calc(var(--calc-width) / -2)); }
+    .scanner-grid {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), 
+                          linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        background-size: 15px 15px; z-index: 1; pointer-events: none;
+    }
 
-        .main-container { display: flex; flex-direction: column; width: var(--main-width); height: 100%; z-index: 10; flex-shrink: 0; }
-        .tabs-nav { display: flex; gap: 4px; height: 42px; }
-        .tab-btn { cursor: pointer; padding: 12px 25px; color: var(--text-dim); font-weight: 900; border: 2px solid var(--accent); border-bottom: none; background: var(--bg-panel); font-size: 13px; }
-        .tab-btn.active { color: #fff; background: rgba(255,255,255,0.1); box-shadow: inset 0 3px 0 #fff; }
+    .scanner-line {
+        position: absolute; left: 0; right: 0; height: 2px;
+        background: rgba(255, 255, 255, 0.6); box-shadow: 0 0 10px #fff;
+        z-index: 5; pointer-events: none; animation: scan 2.5s linear infinite;
+    }
 
-        .main-frame { display: flex; flex: 1; border: 2px solid var(--accent); background: var(--bg-panel); height: calc(100% - 42px); overflow: hidden; position: relative; }
+    @keyframes flicker { 0% { opacity: 0.95; } 50% { opacity: 1; } 100% { opacity: 0.98; } }
+    @keyframes scan { 0% { top: -5%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 105%; opacity: 0; } }
 
-        .weapon-list { width: 300px; border-right: 2px solid var(--accent); overflow-y: auto; background: var(--bg-list); height: 100%; position: relative; z-index: 2; }
-        .weapon-item { height: var(--item-height); padding: 0 15px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-        .weapon-item .list-icon { width: 45px; opacity: 0.5; filter: grayscale(1); object-fit: contain; transition: none !important; }
-        .weapon-item .item-text { display: flex; flex-direction: column; }
-        .weapon-item h3 { margin: 0; font-size: 16px; font-weight: 900; line-height: 1.1; }
-        .weapon-item p { margin: 2px 0 0 0; font-size: 11px; color: var(--text-dim); font-weight: 900; letter-spacing: 2px; }
-        
-        .weapon-item.active { background: #333; }
-        .weapon-item.active .list-icon { opacity: 1; filter: grayscale(0) drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
+    /* 3. ОБЩАЯ СТРУКТУРА ЛЕЙАУТА */
+    .terminal-layout-train { position: relative; width: var(--main-width); height: var(--main-height); display: flex; }
+    .terminal-layout-train.open { transform: translateX(calc(var(--calc-width) / -2)); }
 
-        .info-pane { width: 720px; padding: 15px 25px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; }
-        
-        .header { margin-bottom: 5px; text-align: center; height: 90px; display: flex; flex-direction: column; justify-content: center; }
-        .header h1 { margin: 0; font-size: 38px; font-weight: 900; line-height: 1; letter-spacing: 2px; }
-        .header h2 { margin: 2px 0 0 0; font-size: 16px; color: var(--text-dim); letter-spacing: 2px; min-height: 18px; }
-        .header h3 { margin: 0px 0 0 0; font-size: 14px; color: var(--text-dim); letter-spacing: 4px; min-height: 16px; font-weight: 600; }
+    .main-container { display: flex; flex-direction: column; width: var(--main-width); height: 100%; z-index: 10; flex-shrink: 0; }
+    .main-frame { display: flex; flex: 1; border: 2px solid var(--accent); background: var(--bg-panel); height: calc(100% - 42px); overflow: hidden; position: relative; }
 
-        .icon-target-box { position: relative; padding: 12px; display: inline-flex; }
-        .inner-frame { border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.4); padding: 10px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); position: relative; overflow: hidden; }
-        .inner-frame img { height: 210px; max-width: 480px; object-fit: contain; transition: none !important; position: relative; z-index: 10; filter: drop-shadow(0 0 8px rgba(255,255,255,0.2)); }
+    /* 4. НАВИГАЦИЯ (ВКЛАДКИ) */
+    .tabs-nav { display: flex; gap: 4px; height: 42px; }
+    .tab-btn { cursor: pointer; padding: 12px 25px; color: var(--text-dim); font-weight: 900; border: 2px solid var(--accent); border-bottom: none; background: var(--bg-panel); font-size: 13px; }
+    .tab-btn.active { color: #fff; background: rgba(255,255,255,0.1); box-shadow: inset 0 3px 0 #fff; }
 
-        .corner { position: absolute; width: 14px; height: 14px; border: 4px solid var(--accent); box-shadow: var(--glow); }
-        .tl { top: 0; left: 0; border-right: none; border-bottom: none; }
-        .tr { top: 0; right: 0; border-left: none; border-bottom: none; }
-        .bl { bottom: 0; left: 0; border-right: none; border-top: none; }
-        .br { bottom: 0; right: 0; border-left: none; border-top: none; }
+    /* 5. СПИСОК ОРУЖИЯ / ВРАГОВ (ЛЕВАЯ ПАНЕЛЬ) */
+    .weapon-list { width: 300px; border-right: 2px solid var(--accent); overflow-y: auto; background: var(--bg-list); height: 100%; position: relative; z-index: 2; }
+    .weapon-item { height: var(--item-height); padding: 0 15px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .weapon-item.active { background: #333; }
+    .weapon-item h3 { margin: 0; font-size: 16px; font-weight: 900; line-height: 1.1; }
+    .weapon-item p { margin: 2px 0 0 0; font-size: 11px; color: var(--text-dim); font-weight: 900; letter-spacing: 2px; }
+    .weapon-item .list-icon { width: 45px; opacity: 0.5; filter: grayscale(1); object-fit: contain; }
+    .weapon-item.active .list-icon { opacity: 1; filter: grayscale(0) drop-shadow(0 0 5px rgba(255,255,255,0.3)); }
 
-        .stats-grid { display: grid; gap: 10px; width: 100%; margin-top: auto; }
-        .info-pane .stats-grid { grid-template-columns: repeat(3, 1fr); }
-        .calc-body .stats-grid { grid-template-columns: 1fr; }
+    /* 6. ИНФОРМАЦИОННАЯ ПАНЕЛЬ (ЦЕНТР) */
+    .info-pane { width: 720px; padding: 15px 25px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 2; }
+    
+    .header { margin-bottom: 5px; text-align: center; height: 90px; display: flex; flex-direction: column; justify-content: center; }
+    .header h1 { margin: 0; font-size: 38px; font-weight: 900; line-height: 1; letter-spacing: 2px; }
+    .header h2 { margin: 2px 0 0 0; font-size: 16px; color: var(--text-dim); letter-spacing: 2px; min-height: 18px; }
+    .header h3 { margin: 0px 0 0 0; font-size: 14px; color: var(--text-dim); letter-spacing: 4px; min-height: 16px; font-weight: 600; }
 
-        .stat-card { background: #282828; border: 1px solid #383838; padding: 10px 15px; border-left: 5px solid var(--accent); height: var(--card-height); display: flex; flex-direction: column; justify-content: center; cursor: help; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
-        .stat-name { color: var(--text-dim); font-size: 9px; font-weight: 900; margin-bottom: 2px; }
-        .stat-value { color: #fff; font-size: 16px; font-weight: 900; }
+    /* Рамка изображения и углы */
+    .icon-target-box { position: relative; padding: 12px; display: inline-flex; }
+    .inner-frame { border: 1px solid rgba(255,255,255,0.15); background: rgba(0,0,0,0.4); padding: 10px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); position: relative; overflow: hidden; }
+    .inner-frame img { height: 210px; max-width: 480px; object-fit: contain; position: relative; z-index: 10; filter: drop-shadow(0 0 8px rgba(255,255,255,0.2)); }
 
-        .calc-module { position: absolute; left: 100%; top: 42px; height: 714px; width: var(--calc-width); z-index: 5; transform: translateX(-100%); }
-        .terminal-layout-train.open .calc-module { transform: translateX(0); }
+    .corner { position: absolute; width: 14px; height: 14px; border: 4px solid var(--accent); box-shadow: var(--glow); }
+    .tl { top: 0; left: 0; border-right: none; border-bottom: none; }
+    .tr { top: 0; right: 0; border-left: none; border-bottom: none; }
+    .bl { bottom: 0; left: 0; border-right: none; border-top: none; }
+    .br { bottom: 0; right: 0; border-left: none; border-top: none; }
 
-        .calc-body { width: 100%; height: 100%; background: var(--bg-list); border: 2px solid var(--accent); border-left: none; padding: 25px; display: flex; flex-direction: column; position: relative; }
+    /* 7. СЕТКА ХАРАКТЕРИСТИК И КАРТОЧКИ */
+    .stats-grid { display: grid; gap: 10px; width: 100%; margin-top: auto; }
+    .info-pane .stats-grid { grid-template-columns: repeat(3, 1fr); }
+    .info-pane .stats-grid.col-1 { grid-template-columns: 1fr; }
 
-        .calc-toggle-btn { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: 42px; height: 200px; background: var(--bg-panel); border: 2px solid var(--accent); border-left: none; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 20; box-shadow: inset 0 0 0 #fff; }
-        .calc-toggle-btn span { writing-mode: vertical-rl; font-weight: 900; font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }
-        .calc-toggle-btn.active { background: rgba(255, 255, 255, 0.1); box-shadow: inset -4px 0 0 #fff; }
-        .calc-toggle-btn.active span { color: #fff; }
+    .stat-card { 
+        background: #282828; 
+        border: 1px solid #383838; 
+        padding: 10px 15px; 
+        border-left: 5px solid var(--accent); 
+        height: var(--card-height); 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: center; 
+        align-items: center; /* Центрирование содержимого */
+        text-align: center; 
+        cursor: help; 
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.5); 
+    }
+    
+    .stat-name { color: var(--text-dim); font-size: 9px; font-weight: 900; margin-bottom: 2px; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .stat-value { color: #fff; font-size: 16px; font-weight: 900; width: 100%; white-space: nowrap; }
 
-        .form-control { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 12px; font-family: 'Exo 2'; font-weight: 900; width: 100%; outline: none; margin-bottom: 15px; font-size: 12px; text-transform: uppercase; }
-        
-        #calcEnemyBox { display: none; margin-bottom: 15px; align-self: center; width: fit-content; text-align: center; }
-        #calcEnemyBox .inner-frame { padding: 15px; width: 250px; flex-direction: column; }
-        #calcEnemyBox .inner-frame img { height: 90px; max-width: 220px; width: auto; }
+    /* Особенности врагов */
+    .stat-card.enemy-card { height: auto; min-height: var(--card-height); padding: 12px 15px; }
+    .stat-list-item { margin-top: 4px; color: var(--accent); font-size: 13px; display: flex; align-items: center; }
+    .stat-list-item::before { content: '▪'; color: var(--text-dim); margin-right: 6px; font-size: 10px; }
 
-        .scanner-grid {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-            background-size: 15px 15px; z-index: 1; pointer-events: none;
-        }
-        .scanner-line {
-            position: absolute; left: 0; right: 0; height: 2px;
-            background: rgba(255, 255, 255, 0.6); box-shadow: 0 0 10px #fff;
-            z-index: 5; pointer-events: none; animation: scan 2.5s linear infinite;
-        }
-        @keyframes scan {
-            0% { top: -5%; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 105%; opacity: 0; }
-        }
+    /* 8. СТАТУСЫ ОПАСНОСТИ */
+    :root {
+        --dc1: transparent;
+        --dc2: transparent;
+    }
+    .inner-frame.danger-single { border-color: var(--dc1) !important; animation: dangerPulse 2.5s infinite; }
+    
+    .inner-frame.danger-dual { 
+        border-color: transparent !important; 
+        animation: dangerDualPulse 2.5s infinite linear; 
+    }
+    
+    .inner-frame.danger-dual::before { 
+        content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; 
+        background: conic-gradient(var(--dc1) 0%, var(--dc2) 50%, var(--dc1) 100%); 
+        animation: dangerSpin 2.5s linear infinite; z-index: 0; 
+    }
+    .inner-frame.danger-dual::after { 
+        content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px; 
+        background: #121212; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); z-index: 1; 
+    }
 
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--accent); }
+    @keyframes dangerPulse { 
+        0% { box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 0 0 transparent; } 
+        50% { box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 15px 2px var(--dc1); } 
+        100% { box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 0 0 transparent; } 
+    }
+	
+	@keyframes dangerDualPulse {
+        0% { box-shadow: 0 0 5px var(--dc1); }
+        25% { box-shadow: 0 0 15px var(--dc1); }
+        50% { box-shadow: 0 0 5px var(--dc2); }
+        75% { box-shadow: 0 0 15px var(--dc2); }
+        100% { box-shadow: 0 0 5px var(--dc1); }
+    }
+	
+    @keyframes dangerSpin { 100% { transform: rotate(360deg); } }
 
-        .flipped-weapon { transition: none !important; transform: rotate(120deg) scale(1.1) !important; }
-        .list-icon { transition: none !important; }
-        #mainImg { transition: none !important; }
+    /* 9. МОДУЛЬ КАЛЬКУЛЯТОРА (ПРАВАЯ ПАНЕЛЬ) */
+    .calc-module { position: absolute; left: 100%; top: 42px; height: 714px; width: var(--calc-width); z-index: 5; transform: translateX(-100%); }
+    .terminal-layout-train.open .calc-module { transform: translateX(0); }
+    .calc-body { width: 100%; height: 100%; background: var(--bg-list); border: 2px solid var(--accent); border-left: none; padding: 25px; display: flex; flex-direction: column; position: relative; }
+    .calc-body .stats-grid { grid-template-columns: 1fr; }
 
-        .calc-section { margin-bottom: 18px; width: 100%; }
-        .slider-header { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; text-align: center; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
-        .slider-header span { color: #fff; }
-        .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-dim); font-weight: 900; }
-        .slider-row span { width: 45px; text-align: center; flex-shrink: 0; }
-        
-        .custom-slider { -webkit-appearance: none; flex: 1; height: 4px; background: #444; outline: none; border-radius: 2px; }
-        .custom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: var(--glow); }
-		
-        .visual-model {
-            position: relative;
-            width: 100%;
-            height: 280px;
-            background: url('img/striker_mask.png') center/contain no-repeat;
-        }
-        .dmg-point {
-            position: absolute;
-            font-size: 16px;
-            font-weight: 900;
-            text-align: center;
-        }
-		
-        .dmg-body { color: #a8f778; top: 150px; left: 75px; transform: translate(-50%, -50%); } 
-        .dmg-head { color: #f77878; top: 50px; left: 75px; transform: translate(-50%, -50%); } 
-        .dmg-back { color: #ffe258; top: 150px; left: 215px; transform: translate(-50%, -50%); }
-        .dmg-occiput { color: #c378f7; top: 50px; left: 215px; transform: translate(-50%, -50%); }
-		
-        @keyframes pulseRed {
-            0% { box-shadow: 0 0 0 0 rgba(220, 50, 50, 0.5); border-color: rgba(220, 50, 50, 0.9); }
-            70% { box-shadow: 0 0 0 5px rgba(220, 50, 50, 0); border-color: rgba(220, 50, 50, 0.3); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 50, 50, 0); border-color: rgba(220, 50, 50, 0.9); }
-        }
+    .calc-toggle-btn { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: 42px; height: 200px; background: var(--bg-panel); border: 2px solid var(--accent); border-left: none; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 20; }
+    .calc-toggle-btn span { writing-mode: vertical-rl; font-weight: 900; font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }
+    .calc-toggle-btn.active { background: rgba(255, 255, 255, 0.1); box-shadow: inset -4px 0 0 #fff; }
+    .calc-toggle-btn.active span { color: #fff; }
 
-        @keyframes pulseBlue {
-            0% { box-shadow: 0 0 0 0 rgba(50, 150, 255, 0.5); border-color: rgba(50, 150, 255, 0.9); }
-            70% { box-shadow: 0 0 0 5px rgba(50, 150, 255, 0); border-color: rgba(50, 150, 255, 0.3); }
-            100% { box-shadow: 0 0 0 0 rgba(50, 150, 255, 0); border-color: rgba(50, 150, 255, 0.9); }
-        }
+    /* Элементы управления в калькуляторе */
+    .calc-section { margin-bottom: 18px; width: 100%; }
+    .form-control { background: #2a2a2a; border: 1px solid #444; color: #fff; padding: 12px; font-family: 'Exo 2'; font-weight: 900; width: 100%; outline: none; margin-bottom: 15px; font-size: 12px; text-transform: uppercase; }
+    
+    #calcEnemyBox { display: none; margin-bottom: 15px; align-self: center; width: fit-content; text-align: center; }
+    #calcEnemyBox .inner-frame { padding: 15px; width: 250px; flex-direction: column; }
+    #calcEnemyBox .inner-frame img { height: 90px; max-width: 220px; width: auto; }
 
-        .pulse-kill {
-            border: 1px solid rgba(220, 50, 50, 0.8);
-            background: rgba(220, 50, 50, 0.1);
-            animation: pulseRed 1.5s infinite;
-            padding: 2px 5px;
-            border-radius: 4px;
-            display: inline-block;
-        }
+    .calc-disabled-overlay { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-list); z-index: 100; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 30px; }
+    .calc-disabled-overlay.visible { display: flex; }
 
-        .pulse-stun {
-            border: 1px solid rgba(50, 150, 255, 0.8);
-            background: rgba(50, 150, 255, 0.1);
-            animation: pulseBlue 1.5s infinite;
-            padding: 2px 5px;
-            border-radius: 4px;
-            display: inline-block;
-        }
-		
-        .calc-legend {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 5px;
-            font-size: 9px;
-            color: var(--text-dim);
-        }
+    /* Слайдеры */
+    .slider-header { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; text-align: center; font-weight: 900; letter-spacing: 1px; }
+    .slider-header span { color: #fff; }
+    .slider-row { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-dim); font-weight: 900; }
+    .slider-row span { width: 45px; text-align: center; flex-shrink: 0; }
+    .custom-slider { -webkit-appearance: none; flex: 1; height: 4px; background: #444; outline: none; border-radius: 2px; }
+    .custom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: var(--glow); }
 
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+    /* 10. ВИЗУАЛЬНАЯ МОДЕЛЬ УРОНА */
+    .visual-model { position: relative; width: 100%; height: 280px; background: url('img/striker_mask.png') center/contain no-repeat; }
+    .dmg-point { position: absolute; font-size: 16px; font-weight: 900; text-align: center; }
+    .dmg-head { color: #f77878; top: 50px; left: 75px; transform: translate(-50%, -50%); } 
+    .dmg-body { color: #a8f778; top: 150px; left: 75px; transform: translate(-50%, -50%); } 
+    .dmg-back { color: #ffe258; top: 150px; left: 215px; transform: translate(-50%, -50%); }
+    .dmg-occiput { color: #c378f7; top: 50px; left: 215px; transform: translate(-50%, -50%); }
 
-        .mini-box {
-            width: 8px;
-            height: 8px;
-            border-radius: 2px;
-        }
-		
-        .calc-disabled-overlay {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: var(--bg-list);
-            z-index: 100;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 30px;
-        }
+    /* Пульсирующие индикаторы */
+    .pulse-kill { border: 1px solid rgba(220, 50, 50, 0.8); background: rgba(220, 50, 50, 0.1); animation: pulseRed 1.5s infinite; padding: 2px 5px; border-radius: 4px; display: inline-block; }
+    .pulse-stun { border: 1px solid rgba(50, 150, 255, 0.8); background: rgba(50, 150, 255, 0.1); animation: pulseBlue 1.5s infinite; padding: 2px 5px; border-radius: 4px; display: inline-block; }
+    
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(220, 50, 50, 0.5); } 70% { box-shadow: 0 0 0 5px rgba(220, 50, 50, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 50, 50, 0); } }
+    @keyframes pulseBlue { 0% { box-shadow: 0 0 0 0 rgba(50, 150, 255, 0.5); } 70% { box-shadow: 0 0 0 5px rgba(50, 150, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(50, 150, 255, 0); } }
 
-        .calc-disabled-overlay.visible {
-            display: flex;
-        }
-		
-        .inner-frame.danger-single {
-            border-color: var(--danger-color-1) !important;
-            animation: dangerPulse 1.5s infinite;
-        }
+    .calc-legend { display: flex; justify-content: center; gap: 15px; margin-top: 5px; font-size: 9px; color: var(--text-dim); }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .mini-box { width: 8px; height: 8px; border-radius: 2px; }
 
-        @keyframes dangerPulse {
-            0% { box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 0 0 rgba(0,0,0,0); }
-            50% { box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 15px 2px var(--danger-color-1); }
-            100% { box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 0 0 rgba(0,0,0,0); }
-        }
-
-        .inner-frame.danger-dual {
-            border-color: transparent !important;
-            box-shadow: none !important;
-        }
-
-        .inner-frame.danger-dual::before {
-            content: '';
-            position: absolute;
-            top: -50%; left: -50%; width: 200%; height: 200%;
-            background: conic-gradient(var(--danger-color-1) 0%, var(--danger-color-2) 50%, var(--danger-color-1) 100%);
-            animation: dangerSpin 2.5s linear infinite;
-            z-index: 0;
-        }
-
-        .inner-frame.danger-dual::after {
-            content: '';
-            position: absolute;
-            top: 2px; left: 2px; right: 2px; bottom: 2px;
-            background: #121212; 
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-            z-index: 1;
-        }
-
-        @keyframes dangerSpin {
-            100% { transform: rotate(360deg); }
-        }
-    </style>
+    /* 11. ВСПОМОГАТЕЛЬНЫЕ КЛАССЫ И СКРОЛЛБАР */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--accent); }
+    
+    .flipped-weapon { transform: rotate(120deg) scale(1.1) !important; }
+    #mainImg, .list-icon { transition: none !important; }
+</style>
 </head>
 <body>
 
@@ -288,6 +249,24 @@
                     <div id="dangerLevelBox" style="display: none; text-align: center; margin-top: 5px; margin-bottom: -15px;">
                         <div style="font-size: 9px; color: var(--text-dim); letter-spacing: 2px;">УРОВЕНЬ ОПАСНОСТИ</div>
                         <div id="dangerLevelText" style="font-size: 16px; font-weight: 900; letter-spacing: 2px; margin-top: 2px;"></div>
+                    </div>
+					<div id="mainSliderBox" style="display:none; width:100%; max-width:400px; margin-top: 15px; margin-bottom: -10px; flex-direction: column; align-items: center; z-index: 5;">
+                        <div id="mainRangedUi" style="display:none; width:100%;">
+                            <div class="slider-header" style="font-size:10px;">ДИСТАНЦИЯ ДО ВРАГА: <span id="mainDistValDisplay">0</span> М</div>
+                            <div class="slider-row">
+                                <span id="mainDistMin"></span>
+                                <input type="range" id="mainDistSlider" min="0" max="100" value="0" class="custom-slider" oninput="syncSliders('dist', this.value)">
+                                <span id="mainDistMax"></span>
+                            </div>
+                        </div>
+                        <div id="mainMeleeUi" style="display:none; width:100%;">
+                            <div class="slider-header" style="font-size:10px;">ЗАРЯДКА: <span id="mainChargeValDisplay">100</span> %</div>
+                            <div class="slider-row">
+                                <span>0 %</span>
+                                <input type="range" id="mainChargeSlider" min="0" max="100" value="100" class="custom-slider" oninput="syncSliders('charge', this.value)">
+                                <span>100 %</span>
+                            </div>
+                        </div>
                     </div>
                     <div id="statsGrid" class="stats-grid"></div>
                 </div>
@@ -316,7 +295,7 @@
                         <div class="slider-header">ДИСТАНЦИЯ ДО ВРАГА: <span id="distValDisplay"></span> М</div>
                         <div class="slider-row">
                             <span id="distMinSpan"></span>
-                            <input type="range" id="distSlider" min="0" max="100" value="0" class="custom-slider" oninput="updateCalcByEnemy()">
+                            <input type="range" id="distSlider" min="0" max="100" value="0" class="custom-slider" oninput="syncSliders('dist', this.value)">
                             <span id="distMaxSpan"></span>
                         </div>
                     </div>
@@ -327,7 +306,7 @@
                         <div class="slider-header">ЗАРЯДКА: <span id="chargeValDisplay">100</span> %</div>
                         <div class="slider-row">
                             <span>0 %</span>
-                            <input type="range" id="meleeCharge" min="0" max="100" value="100" class="custom-slider" oninput="updateCalcByEnemy()">
+                            <input type="range" id="meleeCharge" min="0" max="100" value="100" class="custom-slider" oninput="syncSliders('charge', this.value)">
                             <span>100 %</span>
                         </div>
                     </div>
@@ -367,72 +346,108 @@ const descriptions = {
     "ПРОБИТИЕ": "Способность пули проходить сквозь цели, поражая нескольких противников за один выстрел.",
     "ФОНАРИК": "Максимальная дистанция эффективного освещения пространства.",
 	
+	"ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "Максимальный радиус сканирования, на котором сенсоры турели фиксируют движение.",
+    "УГОЛ ОБНАРУЖЕНИЯ": "Эффективный угол обзора (конус сканирования), в пределах которого турель реагирует на врагов.",
+    "ВРЕМЯ ОБНАРУЖЕНИЯ": "Системная задержка между фиксацией цели и открытием огня (Базовое / С биотрекером).",
+	
     "ЗДОРОВЬЕ": "Суммарный запас жизненных сил противника до его полной ликвидации.",
     "СТОЙКОСТЬ": "(Stagger HP) Внутренняя шкала стойкости; при её обнулении за короткий промежуток времени враг входит в состояние стана.",
     "СКОРОСТЬ": "Показатель мобильности врага при патрулировании и в режиме прямой агрессии.",
     "ОПАСНОСТЬ": "Комплексная оценка угрозы противника, исходя из его урона, способностей и живучести.",
 	
+	"УДАР В СПИНУ": "Множитель и итоговый урон при атаке противника со спины.",
+    "УДАР ПО СПЯЩЕМУ": "Множитель и итоговый урон при атаке по спящему (не пробужденному) врагу.",
 	"ДИСТАНЦИЯ": "Максимальное расстояние, на котором оружие способно поразить цель.",
 	"ВРЕМЯ ЗАМАХА": "Минимальное время удержания кнопки атаки для нанесения заряженной атаки.",
 	"ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "Максимальное время, в течение которого можно удерживать готовую атаку перед автоматическим ударом."
 };
 
+const statIcons = {
+    "УРОН": "💥",
+    "ТОЧНОЕ ПОПАДАНИЕ": "🎯",
+    "ШОКОВЫЙ УРОН": "⚡",
+    "БОЕЗАПАС": "🔋",
+    "ОБЩИЙ УРОН": "💀",
+    "ПЕРЕЗАРЯДКА": "🔄",
+    "УРОН В СЕКУНДУ": "🔥",
+    "СКОРОСТРЕЛЬНОСТЬ": "💨",
+    "ДИСТАНЦИЯ СПАДА УРОНА": "📉",
+    "ВРЕМЯ ЗАРЯДКИ": "⏳",
+    "ПРОБИТИЕ": "🎳",
+    "ФОНАРИК": "🔦",
+	
+	"ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "📡",
+    "УГОЛ ОБНАРУЖЕНИЯ": "📐",
+    "ВРЕМЯ ОБНАРУЖЕНИЯ": "👁️",
+	
+    "ЗДОРОВЬЕ": "❤️",
+    "СТОЙКОСТЬ": "🛡️",
+    "СКОРОСТЬ": "🏃",
+    "ОПАСНОСТЬ": "⚠️",
+	
+	"УДАР В СПИНУ": "🗡️",
+    "УДАР ПО СПЯЩЕМУ": "💤",
+    "ДИСТАНЦИЯ": "📏",
+    "ВРЕМЯ ЗАМАХА": "⏱️",
+    "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "💪"
+};
+
 const database = {
     "ОСНОВНОЕ ОРУЖИЕ": [
-        { n1: "SHELLING S49", n2: "ПИСТОЛЕТ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Pistol.webp", stats: { "УРОН": "4.64", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667 (4.021488)", "ШОКОВЫЙ УРОН": "x1.5 (6.96)", "БОЕЗАПАС": "15/153", "ОБЩИЙ УРОН": "779.52", "ПЕРЕЗАРЯДКА": "1.3 С", "УРОН В СЕКУНДУ": "46.4", "СКОРОСТРЕЛЬНОСТЬ": "600", "ДИСТАНЦИЯ СПАДА УРОНА": "9/45 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-        { n1: "SHELLING NANO", n2: "ПИСТОЛЕТ-ПУЛЕМЕТ", n3: "ОЧЕРЕДЬ ИЗ 2 ПУЛЬ", img: "img/Main Weapons/Burst Pistol.webp", stats: { "УРОН": "(3.2 × 2) = 6.4", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667 (5.54688)", "ШОКОВЫЙ УРОН": "×1 (6.4)", "БОЕЗАПАС": "28/255", "ОБЩИЙ УРОН": "905.6", "ПЕРЕЗАРЯДКА": "1.25 С", "УРОН В СЕКУНДУ": "24.62", "СКОРОСТРЕЛЬНОСТЬ": "461.54", "ДИСТАНЦИЯ СПАДА УРОНА": "10/47 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-        { n1: "BATALDO 3RB", n2: "РЕВОЛЬВЕР HEL", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/HEL Revolver.webp", stats: { "УРОН": "8.01", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (5.937813)", "ШОКОВЫЙ УРОН": "×1.0 (8.01)", "БОЕЗАПАС": "8/92", "ОБЩИЙ УРОН": "801", "ПЕРЕЗАРЯДКА": "2.3 С", "УРОН В СЕКУНДУ": "40.05", "СКОРОСТРЕЛЬНОСТЬ": "300", "ДИСТАНЦИЯ СПАДА УРОНА": "10/80 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "2", "ФОНАРИК": "~15 М" } },
-        { n1: "RAPTUS TREFFEN 2", n2: "АВТОМАТИЧЕСКИЙ ПИСТОЛЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Machine Pistol.webp", stats: { "УРОН": "1.9", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (1.40847)", "ШОКОВЫЙ УРОН": "×1 (1.9)", "БОЕЗАПАС": "50/484", "ОБЩИЙ УРОН": "1014.6", "ПЕРЕЗАРЯДКА": "1.25 С", "УРОН В СЕКУНДУ": "47.5", "СКОРОСТРЕЛЬНОСТЬ": "1500", "ДИСТАНЦИ СПАДА УРОНА": "7/35 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-        { n1: "RAPTUS STEIGRO", n2: "САМОЗАРЯДНЫЙ ПИСТОЛЕТ HEL", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/HEL Autopistol.webp", stats: { "УРОН": "1.5", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (1.11195)", "ШОКОВЫЙ УРОН": "×5 (7.5)", "БОЕЗАПАС": "60/460", "ОБЩИЙ УРОН": "780", "ПЕРЕЗАРЯДКА": "1.3 С", "УРОН В СЕКУНДУ": "25.86", "СКОРОСТРЕЛЬНОСТЬ": "1034.48", "ДИСТАНЦИЯ СПАДА УРОНА": "5/55 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "2", "ФОНАРИК": "~15 М" } },
-        { n1: "ACCRAT GOLOK DA", n2: "УКОРОЧЕННАЯ ВИНТОВКА", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Bullpup Rifle.webp", stats: { "УРОН": "2.1", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (2.1)", "ШОКОВЫЙ УРОН": "×1 (2.1)", "БОЕЗАПАС": "40/306", "ОБЩИЙ УРОН": "726.6", "ПЕРЕЗАРЯДКА": "2.3 С", "УРОН В СЕКУНДУ": "38.18", "СКОРОСТРЕЛЬНОСТЬ": "1090.91", "ДИСТАНЦИЯ СПАДА УРОНА": "10/65 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } },
-        { n1: "VAN AUKEN LTGS", n2: "ПИСТОЛЕТ-ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/SMG.webp", stats: { "УРОН": "1.98", "ТОЧНОЕ ПОПАДАНИЕ": "×0.91 (1.8018)", "ШОКОВЫЙ УРОН": "×1 (1.98)", "БОЕЗАПАС": "50/353", "ОБЩИЙ УРОН": "797.94", "ПЕРЕЗАРЯДКА": "1.4 С", "УРОН В СЕКУНДУ": "30", "СКОРОСТРЕЛЬНОСТЬ": "909.09", "ДИСТАНЦИЯ СПАДА УРОНА": "6/55 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8 М" } },
-        { n1: "ACCRAT STB", n2: "ПОС", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/PDW.webp", stats: { "УРОН": "2.15", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (1.593795)", "ШОКОВЫЙ УРОН": "×1.0 (2.15)", "БОЕЗАПАС": "32/353", "ОБЩИЙ УРОН": "827.75", "ПЕРЕЗАРЯДКА": "1.4 С", "УРОН В СЕКУНДУ": "35.83", "СКОРОСТРЕЛЬНОСТЬ": "1000", "ДИСТАНЦИЯ СПАДА УРОНА": "5/47 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16 М" } },
-        { n1: "ACCRAT ND6", n2: "КРУПНОКАЛИБЕРНЫЙ ПИСТОЛЕТ-ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Heavy SMG.webp", stats: { "УРОН": "2.45", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8 (1.96)", "ШОКОВЫЙ УРОН": "×1 (2.45)", "БОЕЗАПАС": "33/306", "ОБЩИЙ УРОН": "830.55", "ПЕРЕЗАРЯДКА": "1.55 С", "УРОН В СЕКУНДУ": "31.41", "СКОРОСТРЕЛЬНОСТЬ": "769.23", "ДИСТАНЦИЯ СПАДА УРОНА": "7/60 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-        { n1: "VAN AUKEN CAB F4", n2: "КАРАБИН", n3: "ОЧЕРЕДЬ ИЗ 4 ПУЛЬ", img: "img/Main Weapons/Carbine.webp", stats: { "УРОН": "(2.38 × 4) = 9.52", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413333 (7.057493)", "ШОКОВЫЙ УРОН": "×1 (9.52)", "БОЕЗАПАС": "48/328", "ОБЩИЙ УРОН": "894.88", "ПЕРЕЗАРЯДКА": "1.6 С", "УРОН В СЕКУНДУ": "46.44", "СКОРОСТРЕЛЬНОСТЬ": "1170.73", "ДИСТАНЦИЯ СПАДА УРОНА": "10/65 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-		{ n1: "TR22 HANAWAY", n2: "МАРКСМАНСКАЯ ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/DMR.webp", stats: { "УРОН": "7.51", "ТОЧНОЕ ПОПАДАНИЕ": "×0.87 (6.5337)", "ШОКОВЫЙ УРОН": "×1 (7.51)", "БОЕЗАПАС": "12/78", "ОБЩИЙ УРОН": "675.9", "ПЕРЕЗАРЯДКА": "2.3 С", "УРОН В СЕКУНДУ": "30.04", "СКОРОСТРЕЛЬНОСТЬ": "240", "ДИСТАНЦИЯ СПАДА УРОНА": "50/100 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-		{ n1: "HANAWAY PSB", n2: "ВИНТОВКА С ДВОЙНЫМ ВЫСТРЕЛОМ", n3: "ОЧЕРЕДЬ ИЗ 2 ПУЛЬ", img: "img/Main Weapons/Double Tap Rifle.webp", stats: { "УРОН": "(5.51 × 2) = 11.02", "ТОЧНОЕ ПОПАДАНИЕ": "×0.9 (9.918)", "ШОКОВЫЙ УРОН": "×1 (11.02)", "БОЕЗАПАС": "14/121", "ОБЩИЙ УРОН": "743.85", "ПЕРЕЗАРЯДКА": "2.15 С", "УРОН В СЕКУНДУ": "39.36", "СКОРОСТРЕЛЬНОСТЬ": "428.57", "ДИСТАНЦИЯ СПАДА УРОНА": "40/90 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } },
-		{ n1: "MALATACK LX", n2: "ШТУРМОВАЯ ВИНТОВКА", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Assault Rifle.webp", stats: { "УРОН": "2.1875", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8 (1.75)", "ШОКОВЫЙ УРОН": "×1 (2.1875)", "БОЕЗАПАС": "30/312", "ОБЩИЙ УРОН": "748.125", "ПЕРЕЗАРЯДКА": "1.8 С", "УРОН В СЕКУНДУ": "25.44", "СКОРОСТРЕЛЬНОСТЬ": "697.67", "ДИСТАНЦИЯ СПАДА УРОНА": "10/70 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-		{ n1: "MALATACK CH 4", n2: "ВИНТОВКА С ТРОЙНЫМ ВЫСТРЕЛОМ", n3: "ОЧЕРЕДЬ ИЗ 3 ПУЛЬ", img: "img/Main Weapons/Burst Rifle.webp", stats: { "УРОН": "(2.71 × 3) = 8.13", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667 (7.046271)", "ШОКОВЫЙ УРОН": "×1 (8.13)", "БОЕЗАПАС": "30/278", "ОБЩИЙ УРОН": "834.68", "ПЕРЕЗАРЯДКА": "2 С", "УРОН В СЕКУНДУ": "35.35", "СКОРОСТРЕЛЬНОСТЬ": "782.61", "ДИСТАНЦИЯ СПАДА УРОНА": "20/85 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~20 М" } },
-		{ n1: "DREKKER PRES MOD 556", n2: "ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Rifle.webp", stats: { "УРОН": "5.08", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667 (4.402836)", "ШОКОВЫЙ УРОН": "×1.75 (8.89)", "БОЕЗАПАС": "14/121", "ОБЩИЙ УРОН": "685.8", "ПЕРЕЗАРЯДКА": "1.9 С", "УРОН В СЕКУНДУ": "31.75", "СКОРОСТРЕЛЬНОСТЬ": "375", "ДИСТАНЦИЯ СПАДА УРОНА": "22/80 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } },
-		{ n1: "BUCKLAND SBS III", n2: "ОБРЕЗ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (8 ДРОБИНОК)", img: "img/Main Weapons/Sawed-off Shotgun.webp", stats: { "УРОН": "30.4", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (22.53552)", "ШОКОВЫЙ УРОН": "×2 (60.8)", "БОЕЗАПАС": "4/41", "ОБЩИЙ УРОН": "1368", "ПЕРЕЗАРЯДКА": "1.6 С", "УРОН В СЕКУНДУ": "121.6", "СКОРОСТРЕЛЬНОСТЬ": "240", "ДИСТАНЦИЯ СПАДА УРОНА": "6/40 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-		{ n1: "BATALDO J 300", n2: "ДРОБОВИК HEL", n3: "АВТОМАТИЧЕСКИЙ (8 ДРОБИНОК)", img: "img/Main Weapons/HEL Shotgun.webp", stats: { "УРОН": "13.36", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (9.903768)", "ШОКОВЫЙ УРОН": "×2 (26.72)", "БОЕЗАПАС": "14/83", "ОБЩИЙ УРОН": "1295.92", "ПЕРЕЗАРЯДКА": "3 С", "УРОН В СЕКУНДУ": "50.92", "СКОРОСТРЕЛЬНОСТЬ": "228.57", "ДИСТАНЦИЯ СПАДА УРОНА": "4/40 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "2", "ФОНАРИК": "~13 М" } },
-		{ n1: "BATALDO CUSTOM K330", n2: "ГЛАДКОСТВОЛЬНОЕ РУЖЬЕ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Slug Shotgun.webp", stats: { "УРОН": "21", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (15.5673)", "ШОКОВЫЙ УРОН": "×2 (42)", "БОЕЗАПАС": "6/38", "ОБЩИЙ УРОН": "924", "ПЕРЕЗАРЯДКА": "2.5 С", "УРОН В СЕКУНДУ": "28", "СКОРОСТРЕЛЬНОСТЬ": "80", "ДИСТАНЦИЯ СПАДА УРОНА": "6/40 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } }
+        { n1: "SHELLING S49", n2: "ПИСТОЛЕТ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Pistol.webp", stats: { "УРОН": "4.64", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667", "ШОКОВЫЙ УРОН": "x1.5", "БОЕЗАПАС": "15/153", "ОБЩИЙ УРОН": "779.52", "ПЕРЕЗАРЯДКА": "1.3", "УРОН В СЕКУНДУ": "46.4", "СКОРОСТРЕЛЬНОСТЬ": "600", "ДИСТАНЦИЯ СПАДА УРОНА": "9/45", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+        { n1: "SHELLING NANO", n2: "ПИСТОЛЕТ-ПУЛЕМЕТ", n3: "ОЧЕРЕДЬ ИЗ 2 ПУЛЬ", img: "img/Main Weapons/Burst Pistol.webp", stats: { "УРОН": "(3.2 × 2) = 6.4", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "28/255", "ОБЩИЙ УРОН": "905.6", "ПЕРЕЗАРЯДКА": "1.25", "УРОН В СЕКУНДУ": "24.62", "СКОРОСТРЕЛЬНОСТЬ": "461.54", "ДИСТАНЦИЯ СПАДА УРОНА": "10/47", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+        { n1: "BATALDO 3RB", n2: "РЕВОЛЬВЕР HEL", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/HEL Revolver.webp", stats: { "УРОН": "8.01", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1.0", "БОЕЗАПАС": "8/92", "ОБЩИЙ УРОН": "801", "ПЕРЕЗАРЯДКА": "2.3", "УРОН В СЕКУНДУ": "40.05", "СКОРОСТРЕЛЬНОСТЬ": "300", "ДИСТАНЦИЯ СПАДА УРОНА": "10/80", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "2", "ФОНАРИК": "~15" } },
+        { n1: "RAPTUS TREFFEN 2", n2: "АВТОМАТИЧЕСКИЙ ПИСТОЛЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Machine Pistol.webp", stats: { "УРОН": "1.9", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "50/484", "ОБЩИЙ УРОН": "1014.6", "ПЕРЕЗАРЯДКА": "1.25", "УРОН В СЕКУНДУ": "47.5", "СКОРОСТРЕЛЬНОСТЬ": "1500", "ДИСТАНЦИЯ СПАДА УРОНА": "7/35", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+        { n1: "RAPTUS STEIGRO", n2: "САМОЗАРЯДНЫЙ ПИСТОЛЕТ HEL", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/HEL Autopistol.webp", stats: { "УРОН": "1.5", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×5", "БОЕЗАПАС": "60/460", "ОБЩИЙ УРОН": "780", "ПЕРЕЗАРЯДКА": "1.3 С", "УРОН В СЕКУНДУ": "25.86", "СКОРОСТРЕЛЬНОСТЬ": "1034.48", "ДИСТАНЦИЯ СПАДА УРОНА": "5/55", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "2", "ФОНАРИК": "~15" } },
+        { n1: "ACCRAT GOLOK DA", n2: "УКОРОЧЕННАЯ ВИНТОВКА", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Bullpup Rifle.webp", stats: { "УРОН": "2.1", "ТОЧНОЕ ПОПАДАНИЕ": "×1", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "40/306", "ОБЩИЙ УРОН": "726.6", "ПЕРЕЗАРЯДКА": "2.3", "УРОН В СЕКУНДУ": "38.18", "СКОРОСТРЕЛЬНОСТЬ": "1090.91", "ДИСТАНЦИЯ СПАДА УРОНА": "10/65", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } },
+        { n1: "VAN AUKEN LTGS", n2: "ПИСТОЛЕТ-ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/SMG.webp", stats: { "УРОН": "1.98", "ТОЧНОЕ ПОПАДАНИЕ": "×0.91", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "50/353", "ОБЩИЙ УРОН": "797.94", "ПЕРЕЗАРЯДКА": "1.4", "УРОН В СЕКУНДУ": "30", "СКОРОСТРЕЛЬНОСТЬ": "909.09", "ДИСТАНЦИЯ СПАДА УРОНА": "6/55", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8" } },
+        { n1: "ACCRAT STB", n2: "ПОС", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/PDW.webp", stats: { "УРОН": "2.15", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1.0", "БОЕЗАПАС": "32/353", "ОБЩИЙ УРОН": "827.75", "ПЕРЕЗАРЯДКА": "1.4", "УРОН В СЕКУНДУ": "35.83", "СКОРОСТРЕЛЬНОСТЬ": "1000", "ДИСТАНЦИЯ СПАДА УРОНА": "5/47", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16" } },
+        { n1: "ACCRAT ND6", n2: "КРУПНОКАЛИБЕРНЫЙ ПИСТОЛЕТ-ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Heavy SMG.webp", stats: { "УРОН": "2.45", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "33/306", "ОБЩИЙ УРОН": "830.55", "ПЕРЕЗАРЯДКА": "1.55", "УРОН В СЕКУНДУ": "31.41", "СКОРОСТРЕЛЬНОСТЬ": "769.23", "ДИСТАНЦИЯ СПАДА УРОНА": "7/60", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+        { n1: "VAN AUKEN CAB F4", n2: "КАРАБИН", n3: "ОЧЕРЕДЬ ИЗ 4 ПУЛЬ", img: "img/Main Weapons/Carbine.webp", stats: { "УРОН": "(2.38 × 4) = 9.52", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413333", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "48/328", "ОБЩИЙ УРОН": "894.88", "ПЕРЕЗАРЯДКА": "1.6", "УРОН В СЕКУНДУ": "46.44", "СКОРОСТРЕЛЬНОСТЬ": "1170.73", "ДИСТАНЦИЯ СПАДА УРОНА": "10/65", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+		{ n1: "TR22 HANAWAY", n2: "МАРКСМАНСКАЯ ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/DMR.webp", stats: { "УРОН": "7.51", "ТОЧНОЕ ПОПАДАНИЕ": "×0.87", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "12/78", "ОБЩИЙ УРОН": "675.9", "ПЕРЕЗАРЯДКА": "2.3", "УРОН В СЕКУНДУ": "30.04", "СКОРОСТРЕЛЬНОСТЬ": "240", "ДИСТАНЦИЯ СПАДА УРОНА": "50/100", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+		{ n1: "HANAWAY PSB", n2: "ВИНТОВКА С ДВОЙНЫМ ВЫСТРЕЛОМ", n3: "ОЧЕРЕДЬ ИЗ 2 ПУЛЬ", img: "img/Main Weapons/Double Tap Rifle.webp", stats: { "УРОН": "(5.51 × 2) = 11.02", "ТОЧНОЕ ПОПАДАНИЕ": "×0.9", "ШОКОВЫЙ УРОН": "×1 (11.02)", "БОЕЗАПАС": "14/121", "ОБЩИЙ УРОН": "743.85", "ПЕРЕЗАРЯДКА": "2.15", "УРОН В СЕКУНДУ": "39.36", "СКОРОСТРЕЛЬНОСТЬ": "428.57", "ДИСТАНЦИЯ СПАДА УРОНА": "40/90", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } },
+		{ n1: "MALATACK LX", n2: "ШТУРМОВАЯ ВИНТОВКА", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Assault Rifle.webp", stats: { "УРОН": "2.1875", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "30/312", "ОБЩИЙ УРОН": "748.125", "ПЕРЕЗАРЯДКА": "1.8", "УРОН В СЕКУНДУ": "25.44", "СКОРОСТРЕЛЬНОСТЬ": "697.67", "ДИСТАНЦИЯ СПАДА УРОНА": "10/70", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+		{ n1: "MALATACK CH 4", n2: "ВИНТОВКА С ТРОЙНЫМ ВЫСТРЕЛОМ", n3: "ОЧЕРЕДЬ ИЗ 3 ПУЛЬ", img: "img/Main Weapons/Burst Rifle.webp", stats: { "УРОН": "(2.71 × 3) = 8.13", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "30/278", "ОБЩИЙ УРОН": "834.68", "ПЕРЕЗАРЯДКА": "2", "УРОН В СЕКУНДУ": "35.35", "СКОРОСТРЕЛЬНОСТЬ": "782.61", "ДИСТАНЦИЯ СПАДА УРОНА": "20/85", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~20" } },
+		{ n1: "DREKKER PRES MOD 556", n2: "ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Rifle.webp", stats: { "УРОН": "5.08", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8667", "ШОКОВЫЙ УРОН": "×1.75", "БОЕЗАПАС": "14/121", "ОБЩИЙ УРОН": "685.8", "ПЕРЕЗАРЯДКА": "1.9", "УРОН В СЕКУНДУ": "31.75", "СКОРОСТРЕЛЬНОСТЬ": "375", "ДИСТАНЦИЯ СПАДА УРОНА": "22/80", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } },
+		{ n1: "BUCKLAND SBS III", n2: "ОБРЕЗ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (8 ДРОБИНОК)", img: "img/Main Weapons/Sawed-off Shotgun.webp", stats: { "УРОН": "30.4", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×2", "БОЕЗАПАС": "4/41", "ОБЩИЙ УРОН": "1368", "ПЕРЕЗАРЯДКА": "1.6", "УРОН В СЕКУНДУ": "121.6", "СКОРОСТРЕЛЬНОСТЬ": "240", "ДИСТАНЦИЯ СПАДА УРОНА": "6/40", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+		{ n1: "BATALDO J 300", n2: "ДРОБОВИК HEL", n3: "АВТОМАТИЧЕСКИЙ (8 ДРОБИНОК)", img: "img/Main Weapons/HEL Shotgun.webp", stats: { "УРОН": "13.36", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×2", "БОЕЗАПАС": "14/83", "ОБЩИЙ УРОН": "1295.92", "ПЕРЕЗАРЯДКА": "3", "УРОН В СЕКУНДУ": "50.92", "СКОРОСТРЕЛЬНОСТЬ": "228.57", "ДИСТАНЦИЯ СПАДА УРОНА": "4/40", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "2", "ФОНАРИК": "~13" } },
+		{ n1: "BATALDO CUSTOM K330", n2: "ГЛАДКОСТВОЛЬНОЕ РУЖЬЕ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Main Weapons/Slug Shotgun.webp", stats: { "УРОН": "21", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×2", "БОЕЗАПАС": "6/38", "ОБЩИЙ УРОН": "924", "ПЕРЕЗАРЯДКА": "2.5", "УРОН В СЕКУНДУ": "28", "СКОРОСТРЕЛЬНОСТЬ": "80", "ДИСТАНЦИЯ СПАДА УРОНА": "6/40", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } }
 	],
     "ОСОБОЕ ОРУЖИЕ": [
-        { n1: "MALATACK HXC", n2: "РУЧНОЙ ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Heavy Assault Rifle.webp", stats: { "УРОН": "5.01", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8 (4.008)", "ШОКОВЫЙ УРОН": "×1 (5.01)", "БОЕЗАПАС": "30/119", "ОБЩИЙ УРОН": "746.49", "ПЕРЕЗАРЯДКА": "2.3 С", "УРОН В СЕКУНДУ": "52.74", "СКОРОСТРЕЛЬНОСТЬ": "631.58", "ДИСТАНЦИЯ СПАДА УРОНА": "12/80 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } },
-		{ n1: "DREKKER CLR", n2: "КОРОТКОСТВОЛЬНАЯ ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Short Rifle.webp", stats: { "УРОН": "4.81", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (3.565653)", "ШОКОВЫЙ УРОН": "×0.5 (2.405)", "БОЕЗАПАС": "30/166", "ОБЩИЙ УРОН": "942.76", "ПЕРЕЗАРЯДКА": "1.7 С", "УРОН В СЕКУНДУ": "120.25", "СКОРОСТРЕЛЬНОСТЬ": "1500", "ДИСТАНЦИЯ СПАДА УРОНА": "8/58 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-		{ n1: "BUCKLAND S870", n2: "ДРОБОВИК", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (10 ДРОБИНОК)", img: "img/Special Weapons/Shotgun.webp", stats: { "УРОН": "30.1", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (30.1)", "ШОКОВЫЙ УРОН": "×1 (30.1)", "БОЕЗАПАС": "8/24", "ОБЩИЙ УРОН": "963.2", "ПЕРЕЗАРЯДКА": "3 С", "УРОН В СЕКУНДУ": "50.17", "СКОРОСТРЕЛЬНОСТЬ": "100", "ДИСТАНЦИЯ СПАДА УРОНА": "4/40 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8 М" } },
-		{ n1: "BUCKLAND AF6", n2: "БОЕВОЙ ДРОБОВИК", n3: "АВТОМАТИЧЕСКИЙ (6 ДРОБИНОК)", img: "img/Special Weapons/Combat Shotgun.webp", stats: { "УРОН": "15.06", "ТОЧНОЕ ПОПАДАНИЕ": "×0.875 (13.1775)", "ШОКОВЫЙ УРОН": "×2 (30.12)", "БОЕЗАПАС": "12/57", "ОБЩИЙ УРОН": "1039.14", "ПЕРЕЗАРЯДКА": "2.83 С", "УРОН В СЕКУНДУ": "60.24", "СКОРОСТРЕЛЬНОСТЬ": "240", "ДИСТАНЦИЯ СПАДА УРОНА": "5/45 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8 М" } },
-		{ n1: "DREKKER INEX DREI", n2: "РУЖЬЕ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (32 ДРОБИНКИ)", img: "img/Special Weapons/Scattergun.webp", stats: { "УРОН": "153.6", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7333 (112.63488)", "ШОКОВЫЙ УРОН": "×2 (307.2)", "БОЕЗАПАС": "2/14", "ОБЩИЙ УРОН": "2457.6", "ПЕРЕЗАРЯДКА": "2.66 С", "УРОН В СЕКУНДУ": "236.31", "СКОРОСТРЕЛЬНОСТЬ": "92.31", "ДИСТАНЦИЯ СПАДА УРОНА": "4/30 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } },
-		{ n1: "BUCKLAND XDIST2", n2: "ДРОБОВИК С ДУЛЬНЫМ СУЖЕНИЕМ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (8 ДРОБИНОК)", img: "img/Special Weapons/Choke Mod Shotgun.webp", stats: { "УРОН": "30.08", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (30.08)", "ШОКОВЫЙ УРОН": "×1.35 (40.608)", "БОЕЗАПАС": "4/23", "ОБЩИЙ УРОН": "812.16", "ПЕРЕЗАРЯДКА": "2.72 С", "УРОН В СЕКУНДУ": "601.6", "СКОРОСТРЕЛЬНОСТЬ": "1200", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13 М" } },
-		{ n1: "MASTABA R66", n2: "РЕВОЛЬВЕР", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Revolver.webp", stats: { "УРОН": "14.21", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (10.533873)", "ШОКОВЫЙ УРОН": "×1 (14.21)", "БОЕЗАПАС": "6/46", "ОБЩИЙ УРОН": "738.92", "ПЕРЕЗАРЯДКА": "1.75 С", "УРОН В СЕКУНДУ": "142.1", "СКОРОСТРЕЛЬНОСТЬ": "600", "ДИСТАНЦИЯ СПАДА УРОНА": "12/80 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8 М" } },
-		{ n1: "TECHMAN ARBALIST V", n2: "ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Machine Gun V.webp", stats: { "УРОН": "5.35", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (3.965955)", "ШОКОВЫЙ УРОН": "×1 (5.35)", "БОЕЗАПАС": "40/144", "ОБЩИЙ УРОН": "984.4", "ПЕРЕЗАРЯДКА": "3.5 С", "УРОН В СЕКУНДУ": "38.21", "СКОРОСТРЕЛЬНОСТЬ": "428.57", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80 М", "ВРЕМЯ ЗАРЯДКИ": "0.4 С", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16 М" } },
-		{ n1: "TECHMAN VERUTA XII", n2: "ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Machine Gun XII.webp", stats: { "УРОН": "3.51", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (2.601963)", "ШОКОВЫЙ УРОН": "×1.45 (5.0895)", "БОЕЗАПАС": "60/200", "ОБЩИЙ УРОН": "912.6", "ПЕРЕЗАРЯДКА": "4 С", "УРОН В СЕКУНДУ": "40.5", "СКОРОСТРЕЛЬНОСТЬ": "692.31", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80 М", "ВРЕМЯ ЗАРЯДКИ": "0.4 С", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16 М" } },
-		{ n1: "TECHMAN KLUST 6", n2: "АВТОМАТИЧЕСКАЯ ПУШКА", n3: "ОЧЕРЕДЬ ИЗ 3 ПУЛЬ", img: "img/Special Weapons/Burst Cannon.webp", stats: { "УРОН": "(22 × 3) = 66", "ТОЧНОЕ ПОПАДАНИЕ": "×0.73 (48.18)", "ШОКОВЫЙ УРОН": "×1 (66)", "БОЕЗАПАС": "20/46", "ОБЩИЙ УРОН": "1452", "ПЕРЕЗАРЯДКА": "3.7 С", "УРОН В СЕКУНДУ": "64.71", "СКОРОСТРЕЛЬНОСТЬ": "176.47", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80 М", "ВРЕМЯ ЗАРЯДКИ": "0.7 С", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16 М" } },
-		{ n1: "OMNECO EXP1", n2: "ПУШКА HEL", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/HEL Gun.webp", stats: { "УРОН": "16.25", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8 (13)", "ШОКОВЫЙ УРОН": "×1 (16.25)", "БОЕЗАПАС": "9/40", "ОБЩИЙ УРОН": "796.25", "ПЕРЕЗАРЯДКА": "3.3 С", "УРОН В СЕКУНДУ": "54.17", "СКОРОСТРЕЛЬНОСТЬ": "200", "ДИСТАНЦИЯ СПАДА УРОНА": "15/90 М", "ВРЕМЯ ЗАРЯДКИ": "0.2 С", "ПРОБИТИЕ": "4", "ФОНАРИК": "~13 М" } },
-		{ n1: "SHELLING ARID 5", n2: "ПИСТОЛЕТ БОЛЬШОГО КАЛИБРА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/High Cal Pistol.webp", stats: { "УРОН": "30.1", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413 (22.31313)", "ШОКОВЫЙ УРОН": "×1 (30.1)", "БОЕЗАПАС": "6/25", "ОБЩИЙ УРОН": "933.1", "ПЕРЕЗАРЯДКА": "2.5 С", "УРОН В СЕКУНДУ": "66.89", "СКОРОСТРЕЛЬНОСТЬ": "133.33", "ДИСТАНЦИЯ СПАДА УРОНА": "8/65 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15 М" } },
-		{ n1: "DREKKER DEL P1", n2: "ВИНТОВКА ТОЧНОГО БОЯ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Precision Rifle.webp", stats: { "УРОН": "13", "ТОЧНОЕ ПОПАДАНИЕ": "×1.3 (16.9)", "ШОКОВЫЙ УРОН": "×1 (13)", "БОЕЗАПАС": "10/41", "ОБЩИЙ УРОН": "663", "ПЕРЕЗАРЯДКА": "3.3 С", "УРОН В СЕКУНДУ": "46.43", "СКОРОСТРЕЛЬНОСТЬ": "214.29", "ДИСТАНЦИЯ СПАДА УРОНА": "30/70 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8 М" } },
-		{ n1: "KÖNING PR 11", n2: "СНАЙПЕРСКАЯ ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Sniper.webp", stats: { "УРОН": "40.01", "ТОЧНОЕ ПОПАДАНИЕ": "×2.0025 (80.120025)", "ШОКОВЫЙ УРОН": "×1 (40.01)", "БОЕЗАПАС": "2/13", "ОБЩИЙ УРОН": "600.15", "ПЕРЕЗАРЯДКА": "3.5 С", "УРОН В СЕКУНДУ": "50.01", "СКОРОСТРЕЛЬНОСТЬ": "75", "ДИСТАНЦИЯ СПАДА УРОНА": "60/100 М", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~20 М" } },
-		{ n1: "OMNECO LRG", n2: "ВИНТОВКА HEL", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/HEL Rifle.webp", stats: { "УРОН": "30.01", "ТОЧНОЕ ПОПАДАНИЕ": "×0.73 (21.9073)", "ШОКОВЫЙ УРОН": "×1 (30.01)", "БОЕЗАПАС": "5/23", "ОБЩИЙ УРОН": "840.28", "ПЕРЕЗАРЯДКА": "3.2 С", "УРОН В СЕКУНДУ": "34.49", "СКОРОСТРЕЛЬНОСТЬ": "68.97", "ДИСТАНЦИЯ СПАДА УРОНА": "40/80 М", "ВРЕМЯ ЗАРЯДКИ": "0.12 С", "ПРОБИТИЕ": "6", "ФОНАРИК": "~20 М" } }
+        { n1: "MALATACK HXC", n2: "РУЧНОЙ ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Heavy Assault Rifle.webp", stats: { "УРОН": "5.01", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "30/119", "ОБЩИЙ УРОН": "746.49", "ПЕРЕЗАРЯДКА": "2.3", "УРОН В СЕКУНДУ": "52.74", "СКОРОСТРЕЛЬНОСТЬ": "631.58", "ДИСТАНЦИЯ СПАДА УРОНА": "12/80", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } },
+		{ n1: "DREKKER CLR", n2: "КОРОТКОСТВОЛЬНАЯ ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Short Rifle.webp", stats: { "УРОН": "4.81", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×0.5", "БОЕЗАПАС": "30/166", "ОБЩИЙ УРОН": "942.76", "ПЕРЕЗАРЯДКА": "1.7", "УРОН В СЕКУНДУ": "120.25", "СКОРОСТРЕЛЬНОСТЬ": "1500", "ДИСТАНЦИЯ СПАДА УРОНА": "8/58", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+		{ n1: "BUCKLAND S870", n2: "ДРОБОВИК", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (10 ДРОБИНОК)", img: "img/Special Weapons/Shotgun.webp", stats: { "УРОН": "30.1", "ТОЧНОЕ ПОПАДАНИЕ": "×1", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "8/24", "ОБЩИЙ УРОН": "963.2", "ПЕРЕЗАРЯДКА": "3", "УРОН В СЕКУНДУ": "50.17", "СКОРОСТРЕЛЬНОСТЬ": "100", "ДИСТАНЦИЯ СПАДА УРОНА": "4/40", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8" } },
+		{ n1: "BUCKLAND AF6", n2: "БОЕВОЙ ДРОБОВИК", n3: "АВТОМАТИЧЕСКИЙ (6 ДРОБИНОК)", img: "img/Special Weapons/Combat Shotgun.webp", stats: { "УРОН": "15.06", "ТОЧНОЕ ПОПАДАНИЕ": "×0.875", "ШОКОВЫЙ УРОН": "×2", "БОЕЗАПАС": "12/57", "ОБЩИЙ УРОН": "1039.14", "ПЕРЕЗАРЯДКА": "2.83", "УРОН В СЕКУНДУ": "60.24", "СКОРОСТРЕЛЬНОСТЬ": "240", "ДИСТАНЦИЯ СПАДА УРОНА": "5/45", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8" } },
+		{ n1: "DREKKER INEX DREI", n2: "РУЖЬЕ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (32 ДРОБИНКИ)", img: "img/Special Weapons/Scattergun.webp", stats: { "УРОН": "153.6", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7333", "ШОКОВЫЙ УРОН": "×2", "БОЕЗАПАС": "2/14", "ОБЩИЙ УРОН": "2457.6", "ПЕРЕЗАРЯДКА": "2.66", "УРОН В СЕКУНДУ": "236.31", "СКОРОСТРЕЛЬНОСТЬ": "92.31", "ДИСТАНЦИЯ СПАДА УРОНА": "4/30", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } },
+		{ n1: "BUCKLAND XDIST2", n2: "ДРОБОВИК С ДУЛЬНЫМ СУЖЕНИЕМ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ (8 ДРОБИНОК)", img: "img/Special Weapons/Choke Mod Shotgun.webp", stats: { "УРОН": "30.08", "ТОЧНОЕ ПОПАДАНИЕ": "×1", "ШОКОВЫЙ УРОН": "×1.35 (40.608)", "БОЕЗАПАС": "4/23", "ОБЩИЙ УРОН": "812.16", "ПЕРЕЗАРЯДКА": "2.72", "УРОН В СЕКУНДУ": "601.6", "СКОРОСТРЕЛЬНОСТЬ": "1200", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~13" } },
+		{ n1: "MASTABA R66", n2: "РЕВОЛЬВЕР", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Revolver.webp", stats: { "УРОН": "14.21", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "6/46", "ОБЩИЙ УРОН": "738.92", "ПЕРЕЗАРЯДКА": "1.75", "УРОН В СЕКУНДУ": "142.1", "СКОРОСТРЕЛЬНОСТЬ": "600", "ДИСТАНЦИЯ СПАДА УРОНА": "12/80", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8" } },
+		{ n1: "TECHMAN ARBALIST V", n2: "ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Machine Gun V.webp", stats: { "УРОН": "5.35", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "40/144", "ОБЩИЙ УРОН": "984.4", "ПЕРЕЗАРЯДКА": "3.5", "УРОН В СЕКУНДУ": "38.21", "СКОРОСТРЕЛЬНОСТЬ": "428.57", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80", "ВРЕМЯ ЗАРЯДКИ": "0.4", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16" } },
+		{ n1: "TECHMAN VERUTA XII", n2: "ПУЛЕМЕТ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Machine Gun XII.webp", stats: { "УРОН": "3.51", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1.45", "БОЕЗАПАС": "60/200", "ОБЩИЙ УРОН": "912.6", "ПЕРЕЗАРЯДКА": "4", "УРОН В СЕКУНДУ": "40.5", "СКОРОСТРЕЛЬНОСТЬ": "692.31", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80", "ВРЕМЯ ЗАРЯДКИ": "0.4", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16" } },
+		{ n1: "TECHMAN KLUST 6", n2: "АВТОМАТИЧЕСКАЯ ПУШКА", n3: "ОЧЕРЕДЬ ИЗ 3 ПУЛЬ", img: "img/Special Weapons/Burst Cannon.webp", stats: { "УРОН": "(22 × 3) = 66", "ТОЧНОЕ ПОПАДАНИЕ": "×0.73", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "20/46", "ОБЩИЙ УРОН": "1452", "ПЕРЕЗАРЯДКА": "3.7", "УРОН В СЕКУНДУ": "64.71", "СКОРОСТРЕЛЬНОСТЬ": "176.47", "ДИСТАНЦИЯ СПАДА УРОНА": "15/80", "ВРЕМЯ ЗАРЯДКИ": "0.7", "ПРОБИТИЕ": "-", "ФОНАРИК": "~16" } },
+		{ n1: "OMNECO EXP1", n2: "ПУШКА HEL", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/HEL Gun.webp", stats: { "УРОН": "16.25", "ТОЧНОЕ ПОПАДАНИЕ": "×0.8", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "9/40", "ОБЩИЙ УРОН": "796.25", "ПЕРЕЗАРЯДКА": "3.3", "УРОН В СЕКУНДУ": "54.17", "СКОРОСТРЕЛЬНОСТЬ": "200", "ДИСТАНЦИЯ СПАДА УРОНА": "15/90", "ВРЕМЯ ЗАРЯДКИ": "0.2", "ПРОБИТИЕ": "4", "ФОНАРИК": "~13" } },
+		{ n1: "SHELLING ARID 5", n2: "ПИСТОЛЕТ БОЛЬШОГО КАЛИБРА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/High Cal Pistol.webp", stats: { "УРОН": "30.1", "ТОЧНОЕ ПОПАДАНИЕ": "×0.7413", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "6/25", "ОБЩИЙ УРОН": "933.1", "ПЕРЕЗАРЯДКА": "2.5", "УРОН В СЕКУНДУ": "66.89", "СКОРОСТРЕЛЬНОСТЬ": "133.33", "ДИСТАНЦИЯ СПАДА УРОНА": "8/65", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~15" } },
+		{ n1: "DREKKER DEL P1", n2: "ВИНТОВКА ТОЧНОГО БОЯ", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Precision Rifle.webp", stats: { "УРОН": "13", "ТОЧНОЕ ПОПАДАНИЕ": "×1.3", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "10/41", "ОБЩИЙ УРОН": "663", "ПЕРЕЗАРЯДКА": "3.3", "УРОН В СЕКУНДУ": "46.43", "СКОРОСТРЕЛЬНОСТЬ": "214.29", "ДИСТАНЦИЯ СПАДА УРОНА": "30/70", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~8" } },
+		{ n1: "KÖNING PR 11", n2: "СНАЙПЕРСКАЯ ВИНТОВКА", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/Sniper.webp", stats: { "УРОН": "40.01", "ТОЧНОЕ ПОПАДАНИЕ": "×2.0025", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "2/13", "ОБЩИЙ УРОН": "600.15", "ПЕРЕЗАРЯДКА": "3.5", "УРОН В СЕКУНДУ": "50.01", "СКОРОСТРЕЛЬНОСТЬ": "75", "ДИСТАНЦИЯ СПАДА УРОНА": "60/100", "ВРЕМЯ ЗАРЯДКИ": "-", "ПРОБИТИЕ": "-", "ФОНАРИК": "~20" } },
+		{ n1: "OMNECO LRG", n2: "ВИНТОВКА HEL", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Special Weapons/HEL Rifle.webp", stats: { "УРОН": "30.01", "ТОЧНОЕ ПОПАДАНИЕ": "×0.73", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "5/23", "ОБЩИЙ УРОН": "840.28", "ПЕРЕЗАРЯДКА": "3.2", "УРОН В СЕКУНДУ": "34.49", "СКОРОСТРЕЛЬНОСТЬ": "68.97", "ДИСТАНЦИЯ СПАДА УРОНА": "40/80", "ВРЕМЯ ЗАРЯДКИ": "0.12", "ПРОБИТИЕ": "6", "ФОНАРИК": "~20" } }
     ],
     "УСТРОЙСТВА": [
-        { n1: "MECHATRONIC SGB3", n2: "ПУЛЕМЕТНАЯ ТУРЕЛЬ", n3: "ОЧЕРЕДЬ", img: "img/Tools/Burst Sentry.webp", stats: { "УРОН": "(2.01 × 3) = 6.03", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (6.03)", "ШОКОВЫЙ УРОН": "×1 (6.03)", "БОЕЗАПАС": "256", "ОБЩИЙ УРОН": "514.56", "УРОН В СЕКУНДУ": "5.53", "СКОРОСТРЕЛЬНОСТЬ": "165.14", "ДИСТАНЦИЯ СПАДА УРОНА": "10/40 М", "ПРОБИТИЕ": "-", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "25 М", "УГОЛ ОБНАРУЖЕНИЯ": "30°", "ВРЕМЯ ОБНАРУЖЕНИЯ": "1.0 С" } },
-		{ n1: "RAD LABS MEDUZA", n2: "HEL AUTO SENTRY", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Tools/HEL Auto Sentry.webp", stats: { "УРОН": "0.8", "ТОЧНОЕ ПОПАДАНИЕ": "×0.834 (0.6672)", "ШОКОВЫЙ УРОН": "×8 (6.4)", "БОЕЗАПАС": "751", "ОБЩИЙ УРОН": "600.8", "УРОН В СЕКУНДУ": "10", "СКОРОСТРЕЛЬНОСТЬ": "750", "ДИСТАНЦИЯ СПАДА УРОНА": "10/70 М", "ПРОБИТИЕ": "2", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "25 М", "УГОЛ ОБНАРУЖЕНИЯ": "30°", "ВРЕМЯ ОБНАРУЖЕНИЯ": "1.0 С" } },
-		{ n1: "AUTOTEK 51 RSG", n2: "СНАЙПЕРСКАЯ ТУРЕЛЬ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Tools/Sniper Sentry.webp", stats: { "УРОН": "48.11", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (48.1)", "ШОКОВЫЙ УРОН": "×1 (48.1)", "БОЕЗАПАС": "32/46", "ОБЩИЙ УРОН": "1539.2/2212.6", "УРОН В СЕКУНДУ": "18.52", "СКОРОСТРЕЛЬНОСТЬ": "23.08", "ДИСТАНЦИЯ СПАДА УРОНА": "30/100 М", "ПРОБИТИЕ": "-", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "50 М", "УГОЛ ОБНАРУЖЕНИЯ": "20°", "ВРЕМЯ ОБНАРУЖЕНИЯ": "2.8/1.4 С" } },
-		{ n1: "MECHATRONIC B5 LFR", n2: "ТУРЕЛЬ-ДРОБОВИК", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Tools/Shotgun Sentry.webp", stats: { "УРОН": "15.05", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (15.05)", "ШОКОВЫЙ УРОН": "×1 (15.05)", "БОЕЗАПАС": "66/133", "ОБЩИЙ УРОН": "993.3/2001.65", "УРОН В СЕКУНДУ": "20.07", "СКОРОСТРЕЛЬНОСТЬ": "80", "ДИСТАНЦИЯ СПАДА УРОНА": "4/40 М", "ПРОБИТИЕ": "-", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "10 М", "УГОЛ ОБНАРУЖЕНИЯ": "40°", "ВРЕМЯ ОБНАРУЖЕНИЯ": "0.5/0.125 С" } }
+        { n1: "MECHATRONIC SGB3", n2: "ПУЛЕМЕТНАЯ ТУРЕЛЬ", n3: "ОЧЕРЕДЬ", img: "img/Tools/Burst Sentry.webp", stats: { "УРОН": "(2.01 × 3) = 6.03", "ТОЧНОЕ ПОПАДАНИЕ": "×1", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "256", "ОБЩИЙ УРОН": "514.56", "УРОН В СЕКУНДУ": "5.53", "СКОРОСТРЕЛЬНОСТЬ": "165.14", "ДИСТАНЦИЯ СПАДА УРОНА": "10/40", "ПРОБИТИЕ": "-", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "25", "УГОЛ ОБНАРУЖЕНИЯ": "30", "ВРЕМЯ ОБНАРУЖЕНИЯ": "1.0" } },
+		{ n1: "RAD LABS MEDUZA", n2: "HEL AUTO SENTRY", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Tools/HEL Auto Sentry.webp", stats: { "УРОН": "0.8", "ТОЧНОЕ ПОПАДАНИЕ": "×0.834", "ШОКОВЫЙ УРОН": "×8", "БОЕЗАПАС": "751", "ОБЩИЙ УРОН": "600.8", "УРОН В СЕКУНДУ": "10", "СКОРОСТРЕЛЬНОСТЬ": "750", "ДИСТАНЦИЯ СПАДА УРОНА": "10/70", "ПРОБИТИЕ": "2", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "25", "УГОЛ ОБНАРУЖЕНИЯ": "30", "ВРЕМЯ ОБНАРУЖЕНИЯ": "1.0" } },
+		{ n1: "AUTOTEK 51 RSG", n2: "СНАЙПЕРСКАЯ ТУРЕЛЬ", n3: "ПОЛУАВТОМАТИЧЕСКИЙ", img: "img/Tools/Sniper Sentry.webp", stats: { "УРОН": "48.11", "ТОЧНОЕ ПОПАДАНИЕ": "×1", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "32/46", "ОБЩИЙ УРОН": "1539.2/2212.6", "УРОН В СЕКУНДУ": "18.52", "СКОРОСТРЕЛЬНОСТЬ": "23.08", "ДИСТАНЦИЯ СПАДА УРОНА": "30/100", "ПРОБИТИЕ": "-", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "50", "УГОЛ ОБНАРУЖЕНИЯ": "20", "ВРЕМЯ ОБНАРУЖЕНИЯ": "2.8/1.4" } },
+		{ n1: "MECHATRONIC B5 LFR", n2: "ТУРЕЛЬ-ДРОБОВИК", n3: "АВТОМАТИЧЕСКИЙ", img: "img/Tools/Shotgun Sentry.webp", stats: { "УРОН": "15.05", "ТОЧНОЕ ПОПАДАНИЕ": "×1", "ШОКОВЫЙ УРОН": "×1", "БОЕЗАПАС": "66/133", "ОБЩИЙ УРОН": "993.3/2001.65", "УРОН В СЕКУНДУ": "20.07", "СКОРОСТРЕЛЬНОСТЬ": "80", "ДИСТАНЦИЯ СПАДА УРОНА": "4/40", "ПРОБИТИЕ": "-", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "10", "УГОЛ ОБНАРУЖЕНИЯ": "40", "ВРЕМЯ ОБНАРУЖЕНИЯ": "0.5/0.125" } }
     ],
     "ОРУЖИЕ БЛИЖНЕГО БОЯ": [
-        { n1: "SANTONIAN HDH", n2: "КУВАЛДА", n3: "", meleeData: { fast: 3, charged: 20, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/Santonian HDH.webp", stats: {"УРОН": "20", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (20)", "ШОКОВЫЙ УРОН": "×1.3 (26)", "ДИСТАНЦИЯ": "1.8 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2 С"} },
-		{ n1: "OMNECO MAUL", n2: "КУВАЛДА", n3: "", meleeData: { fast: 3, charged: 20, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/Omneco Maul.webp", stats: {"УРОН": "20", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (20)", "ШОКОВЫЙ УРОН": "×1.3 (26)", "ДИСТАНЦИЯ": "1.8 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2 С"} },
-		{ n1: "MASTABA FIXED BLADE", n2: "НОЖ", n3: "", meleeData: { fast: 2, charged: 5.5, precFast: 1, precCharged: 1.5, backFast: 1, backCharged: 1.7, sleepFast: 1, sleepCharged: 1.5 }, img: "img/Melee Weapons/Mastaba Fixed Blade.webp", stats: {"УРОН": "5.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1.5 (8.25)", "ШОКОВЫЙ УРОН": "×1 (5.5)", "ДИСТАНЦИЯ": "1.75 М", "ВРЕМЯ ЗАМАХА": "0.6 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "15 С"} },
-		{ n1: "WOX COMPACT", n2: "НОЖ", n3: "", meleeData: { fast: 2, charged: 5.5, precFast: 1, precCharged: 1.5, backFast: 1, backCharged: 1.7, sleepFast: 1, sleepCharged: 1.5 }, img: "img/Melee Weapons/Wox Compact.webp", stats: {"УРОН": "5.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1.5 (8.25)", "ШОКОВЫЙ УРОН": "×1 (5.5)", "ДИСТАНЦИЯ": "1.75 М", "ВРЕМЯ ЗАМАХА": "0.6 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "15 С"} },
-		{ n1: "KOVAC PEACEKEEPER", n2: "БИТА", n3: "", meleeData: { fast: 3, charged: 12, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/Kovac Peacekeeper.webp", stats: {"УРОН": "12", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (12)", "ШОКОВЫЙ УРОН": "×7 (84)", "ДИСТАНЦИЯ": "1.75 М", "ВРЕМЯ ЗАМАХА": "1 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "7 С"} },
-		{ n1: "ATTROC TITANIUM", n2: "БИТА", n3: "", meleeData: { fast: 3, charged: 12, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/Attroc Titanium.webp", stats: {"УРОН": "12", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (12)", "ШОКОВЫЙ УРОН": "×7 (84)", "ДИСТАНЦИЯ": "1.75 М", "ВРЕМЯ ЗАМАХА": "1 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "7 С"} },
-		{ n1: "MACO DRILLHEAD", n2: "КОПЬЕ", n3: "", meleeData: { fast: 2, charged: 17.5, precFast: 1.3, precCharged: 1.5, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/MACO Drillhead.webp", stats: {"УРОН": "17.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1.5 (26.25)", "ШОКОВЫЙ УРОН": "×1 (17.5)", "ДИСТАНЦИЯ": "3.2 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.5 С"} },
-		{ n1: "ISOCO STINGER", n2: "КОПЬЕ", n3: "", meleeData: { fast: 2, charged: 17.5, precFast: 1.3, precCharged: 1.5, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/IsoCo Stinger.webp", stats: {"УРОН": "17.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1.5 (26.25)", "ШОКОВЫЙ УРОН": "×1 (17.5)", "ДИСТАНЦИЯ": "3.2 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.5 С"} },
-		{ n1: "KOVAC SLEDGEHAMMER", n2: "КУВАЛДА", n3: "", meleeData: { fast: 3, charged: 20, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/Kovac Sledgehammer.webp", stats: {"УРОН": "20", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (20)", "ШОКОВЫЙ УРОН": "×1.3 (26)", "ДИСТАНЦИЯ": "1.8 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2 С"} },
-		{ n1: "SANTONIAN MALLET", n2: "КУВАЛДА", n3: "", meleeData: { fast: 3, charged: 20, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/Santonian Mallet.webp", stats: {"УРОН": "20", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (20)", "ШОКОВЫЙ УРОН": "×1.3 (26)", "ДИСТАНЦИЯ": "1.8 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2 С"} },
-		{ n1: "MACO GAVEL", n2: "КУВАЛДА", n3: "", meleeData: { fast: 3, charged: 20, precFast: 1, precCharged: 1, backFast: 1, backCharged: 1, sleepFast: 1, sleepCharged: 1 }, img: "img/Melee Weapons/MACO Gavel.webp", stats: {"УРОН": "20", "ТОЧНОЕ ПОПАДАНИЕ": "×1 (20)", "ШОКОВЫЙ УРОН": "×1.3 (26)", "ДИСТАНЦИЯ": "1.8 М", "ВРЕМЯ ЗАМАХА": "1.8 С", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2 С"} }
+        { n1: "SANTONIAN HDH", n2: "КУВАЛДА", n3: "", img: "img/Melee Weapons/Santonian HDH.webp", stats: {"УРОН": "3/20", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×1/×1.3", "ДИСТАНЦИЯ": "1.8", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2"} },
+		{ n1: "OMNECO MAUL", n2: "КУВАЛДА", n3: "", img: "img/Melee Weapons/Omneco Maul.webp", stats: {"УРОН": "3/20", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×1/×1.3", "ДИСТАНЦИЯ": "1.8", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2"} },
+		{ n1: "MASTABA FIXED BLADE", n2: "НОЖ", n3: "", img: "img/Melee Weapons/Mastaba Fixed Blade.webp", stats: {"УРОН": "2/5.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1.5", "УДАР В СПИНУ": "×1/×1.7", "УДАР ПО СПЯЩЕМУ": "×1/×1.5", "ШОКОВЫЙ УРОН": "×1/×1", "ДИСТАНЦИЯ": "1.75", "ВРЕМЯ ЗАМАХА": "0.6", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "15"} },
+		{ n1: "WOX COMPACT", n2: "НОЖ", n3: "", img: "img/Melee Weapons/Wox Compact.webp", stats: {"УРОН": "2/5.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1.5", "УДАР В СПИНУ": "×1/×1.7", "УДАР ПО СПЯЩЕМУ": "×1/×1.5", "ШОКОВЫЙ УРОН": "×1/×1", "ДИСТАНЦИЯ": "1.75", "ВРЕМЯ ЗАМАХА": "0.6", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "15"} },
+		{ n1: "KOVAC PEACEKEEPER", n2: "БИТА", n3: "", img: "img/Melee Weapons/Kovac Peacekeeper.webp", stats: {"УРОН": "3/12", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×5/×7", "ДИСТАНЦИЯ": "1.75", "ВРЕМЯ ЗАМАХА": "1", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "7"} },
+		{ n1: "ATTROC TITANIUM", n2: "БИТА", n3: "", img: "img/Melee Weapons/Attroc Titanium.webp", stats: {"УРОН": "3/12", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×5/×7", "ДИСТАНЦИЯ": "1.75", "ВРЕМЯ ЗАМАХА": "1", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "7"} },
+		{ n1: "MACO DRILLHEAD", n2: "КОПЬЕ", n3: "", img: "img/Melee Weapons/MACO Drillhead.webp", stats: {"УРОН": "2/17.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1.3/×1.5", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "/×1", "ДИСТАНЦИЯ": "3.2", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.5"} },
+		{ n1: "ISOCO STINGER", n2: "КОПЬЕ", n3: "", img: "img/Melee Weapons/IsoCo Stinger.webp", stats: {"УРОН": "2/17.5", "ТОЧНОЕ ПОПАДАНИЕ": "×1.3/×1.5", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "/×1", "ДИСТАНЦИЯ": "3.2", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.5"} },
+		{ n1: "KOVAC SLEDGEHAMMER", n2: "КУВАЛДА", n3: "", img: "img/Melee Weapons/Kovac Sledgehammer.webp", stats: {"УРОН": "3/20", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×1/×1.3", "ДИСТАНЦИЯ": "1.8", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2"} },
+		{ n1: "SANTONIAN MALLET", n2: "КУВАЛДА", n3: "", img: "img/Melee Weapons/Santonian Mallet.webp", stats: {"УРОН": "3/20", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×1/×1.3", "ДИСТАНЦИЯ": "1.8", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2"} },
+		{ n1: "MACO GAVEL", n2: "КУВАЛДА", n3: "", img: "img/Melee Weapons/MACO Gavel.webp", stats: {"УРОН": "3/20", "ТОЧНОЕ ПОПАДАНИЕ": "×1/×1", "УДАР В СПИНУ": "×1/×1", "УДАР ПО СПЯЩЕМУ": "×1/×1", "ШОКОВЫЙ УРОН": "×1/×1.3", "ДИСТАНЦИЯ": "1.8", "ВРЕМЯ ЗАМАХА": "1.8", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "4.2"} }
 	],
     "ВРАГИ": [
         { n1: "STRIKER", n2: "СТРАЙКЕР", n3: "ОБЫЧНЫЙ ВРАГ", headMult: 3, img: "img/Enemies/Striker.webp", stats: { "ЗДОРОВЬЕ": "20", "СТОЙКОСТЬ": "5", "УРОН": "12% ЯЗЫКОМ", "СКОРОСТЬ": "СРЕДНИЙ", "ОПАСНОСТЬ": "НИЗКИЙ/СРЕДНИЙ" } },
@@ -450,12 +465,358 @@ const database = {
     ]
 };
 
-function createStatCard(name, value) {
+// Генерация карточки с авто-буквами
+function createStatCard(name, value, cat = "") {
     const hint = descriptions[name] || "";
+    const iconEmoji = statIcons[name] || "▪";
+    const icon = `<span style="font-size: 18px; margin-right: 4px; display: inline-flex; align-items: center; justify-content: center; width: 20px; flex-shrink: 0;">${iconEmoji}</span>`;
+    let displayValue = String(value);
+
+    // Логика биотрекера: поднимаем ДНК и убираем влияние на высоту строки
+    if (cat === "УСТРОЙСТВА" && (name === "БОЕЗАПАС" || name === "ВРЕМЯ ОБНАРУЖЕНИЯ" || name === "ОБЩИЙ УРОН")) {
+        if (displayValue.includes('/')) {
+            let parts = displayValue.split('/');
+            displayValue = `${parts[0]} / <span style="color: #a8f778; font-weight: 900;">${parts[1]}</span> <span style="font-size: 16px; margin-left: -4px; line-height: 0;">🧬</span>`;
+        }
+    }
+    
+    // Авто-генерация единиц измерения
+    const unitMap = { "ПЕРЕЗАРЯДКА": "СЕК", "УРОН В СЕКУНДУ": "DPS", "СКОРОСТРЕЛЬНОСТЬ": "RPM", "ДИСТАНЦИЯ СПАДА УРОНА": "М", "ФОНАРИК": "М", "ДИСТАНЦИЯ ОБНАРУЖЕНИЯ": "М", "УГОЛ ОБНАРУЖЕНИЯ": "°", "ВРЕМЯ ОБНАРУЖЕНИЯ": "СЕК", "ДИСТАНЦИЯ": "М", "ВРЕМЯ ЗАМАХА": "СЕК", "ВРЕМЯ УДЕРЖАНИЯ ЗАМАХА": "СЕК" };
+    if (unitMap[name]) {
+        let u = unitMap[name];
+        displayValue += (name === "УГОЛ ОБНАРУЖЕНИЯ") ? `<span style="color: var(--text-dim); font-size: inherit;">${u}</span>` : ` <span style="font-size: 10px; color: var(--text-dim);">${u}</span>`;
+    } else if (name === "ВРЕМЯ ЗАРЯДКИ" && displayValue.trim() !== "-") {
+        displayValue += ` <span style="font-size: 10px; color: var(--text-dim);">СЕК</span>`;
+    }
+
     return `
-        <div class="stat-card" title="${hint}">
-            <div class="stat-name">${name}</div>
-            <div class="stat-value">${value}</div>
+        <div class="stat-card" title="${hint}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+            <div class="stat-name" style="display: flex; align-items: center; justify-content: center; width: 100%;">${icon} ${name}</div>
+            <div class="stat-value" style="width: 100%; white-space: nowrap;">${displayValue}</div>
+        </div>`;
+}
+
+let lastWeaponId = "";
+
+// Математика для ББ (парсит 3/12 в зависимости от ползунка)
+function parseMeleeValue(str, pct) {
+    if (!str || !String(str).includes('/')) return str;
+    let parts = String(str).split('/');
+    let minStr = parts[0].replace(/[x×]/g, '').trim();
+    let maxStr = parts[1].replace(/[x×]/g, '').trim();
+    let min = parseFloat(minStr), max = parseFloat(maxStr);
+    if (isNaN(min) || isNaN(max)) return str;
+    
+    let current = min + (max - min) * pct;
+    let res = parseFloat(current.toFixed(2)).toString(); 
+    return (String(str).includes('×') || String(str).includes('x')) ? `×${res}` : res;
+}
+
+// Математика для дистанции
+function modifyRangedStat(str, distMult) {
+    if (!str || str === "-") return str;
+    let strVal = String(str);
+    let isEquation = strVal.includes('=');
+    let numPart = isEquation ? strVal.split('=')[1] : strVal;
+    let val = parseFloat(numPart.replace(/[^\d.]/g, '').trim());
+    if (isNaN(val)) return str;
+    let res = parseFloat((val * distMult).toFixed(2)).toString();
+    return isEquation ? (strVal.split('=')[0] + "= " + res) : res;
+}
+
+// Синхронизатор ползунков
+function syncSliders(type, val) {
+    if (type === 'dist') {
+        document.getElementById('mainDistSlider').value = val;
+        let cS = document.getElementById('distSlider'); if(cS) cS.value = val;
+        document.getElementById('mainDistValDisplay').innerText = val;
+        let cD = document.getElementById('distValDisplay'); if(cD) cD.innerText = val;
+    } else if (type === 'charge') {
+        document.getElementById('mainChargeSlider').value = val;
+        let cS = document.getElementById('meleeCharge'); if(cS) cS.value = val;
+        document.getElementById('mainChargeValDisplay').innerText = val;
+        let cD = document.getElementById('chargeValDisplay'); if(cD) cD.innerText = val;
+    }
+    renderStatsGrid();
+    updateCalcByEnemy();
+}
+
+// Динамическая отрисовка сетки
+function renderStatsGrid() {
+    const grid = document.getElementById('statsGrid'); 
+    grid.innerHTML = '';
+    grid.className = (curWeaponMode === "ВРАГИ") ? "stats-grid col-1" : "stats-grid";
+
+    let statsToRender = { ...curWeaponData.stats };
+
+    if (curWeaponMode === "ВРАГИ") {
+        if (statsToRender["ОПАСНОСТЬ"]) delete statsToRender["ОПАСНОСТЬ"];
+        Object.entries(statsToRender).forEach(([name, val]) => grid.innerHTML += createStatCard(name, val, curWeaponMode));
+        return;
+    }
+
+    if (curWeaponMode === "ОРУЖИЕ БЛИЖНЕГО БОЯ") {
+        let chargePct = parseFloat(document.getElementById('mainChargeSlider').value) / 100;
+        Object.keys(statsToRender).forEach(key => statsToRender[key] = parseMeleeValue(statsToRender[key], chargePct));
+    } else {
+        let distSlider = document.getElementById('mainDistSlider');
+        let falloff = statsToRender["ДИСТАНЦИЯ СПАДА УРОНА"];
+        if (falloff && falloff !== "-" && falloff.includes('/')) {
+            let parts = falloff.replace('М', '').trim().split('/');
+            let dStart = parseFloat(parts[0]), dEnd = parseFloat(parts[1]);
+            let currentDist = parseFloat(distSlider.value);
+            let distMult = Math.max(0.1, Math.min(1.0, 1.0 - 0.9 * ((currentDist - dStart) / (dEnd - dStart))));
+            if (distMult < 1.0) {
+                statsToRender["УРОН"] = modifyRangedStat(statsToRender["УРОН"], distMult);
+                statsToRender["ОБЩИЙ УРОН"] = modifyRangedStat(statsToRender["ОБЩИЙ УРОН"], distMult);
+                statsToRender["УРОН В СЕКУНДУ"] = modifyRangedStat(statsToRender["УРОН В СЕКУНДУ"], distMult);
+            }
+        }
+    }
+
+    let baseDmgNum = 0;
+    let dmgStr = String(statsToRender["УРОН"] || "0");
+    if (dmgStr.includes('=')) {
+        let parts = dmgStr.split('=');
+        baseDmgNum = parseFloat(parts[1].trim());
+        statsToRender["УРОН"] = `${parts[0]}= <span style="color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3);">${baseDmgNum}</span>`;
+    } else {
+        let match = dmgStr.match(/([\d.]+)/);
+        baseDmgNum = match ? parseFloat(match[1]) : parseFloat(dmgStr);
+        statsToRender["УРОН"] = `<span style="color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3);">${dmgStr}</span>`;
+    }
+
+    // Расчеты Точного и Шокового урона
+    if (statsToRender["ТОЧНОЕ ПОПАДАНИЕ"]) {
+        let multStr = String(statsToRender["ТОЧНОЕ ПОПАДАНИЕ"]).replace(/[x×]/g, '').trim();
+        let multNum = parseFloat(multStr);
+        if (!isNaN(multNum)) statsToRender["ТОЧНОЕ ПОПАДАНИЕ"] = `(<span style="color: #ff4444">${baseDmgNum}</span> × ${multNum}) = <span style="color: #ff66b2; text-shadow: 0 0 5px rgba(255,102,178,0.3);">${(baseDmgNum * multNum).toFixed(2)}</span>`;
+    }
+    if (statsToRender["ШОКОВЫЙ УРОН"]) {
+        let multStr = String(statsToRender["ШОКОВЫЙ УРОН"]).replace(/[x×]/g, '').trim();
+        let multNum = parseFloat(multStr);
+        if (!isNaN(multNum)) statsToRender["ШОКОВЫЙ УРОН"] = `(<span style="color: #ff4444">${baseDmgNum}</span> × ${multNum}) = <span style="color: #ff9800; text-shadow: 0 0 5px rgba(255,152,0,0.3);">${(baseDmgNum * multNum).toFixed(2)}</span>`;
+    }
+    
+    // Для Удара в спину
+    if (statsToRender["УДАР В СПИНУ"]) {
+        let multStr = String(statsToRender["УДАР В СПИНУ"]).split('(')[0].trim();
+        statsToRender["УДАР В СПИНУ"] = `<span style="color: var(--accent); font-weight: 900;">${multStr}</span>`;
+    }
+
+    // Для Удара по спящему
+    if (statsToRender["УДАР ПО СПЯЩЕМУ"]) {
+        let multStr = String(statsToRender["УДАР ПО СПЯЩЕМУ"]).split('(')[0].trim();
+        statsToRender["УДАР ПО СПЯЩЕМУ"] = `<span style="color: var(--accent); font-weight: 900;">${multStr}</span>`;
+    }
+
+    Object.entries(statsToRender).forEach(([name, val]) => grid.innerHTML += createStatCard(name, val, curWeaponMode));
+}
+
+// Управление отображением ползунков и цифрами дистанции
+function setupMainSliders() {
+    const sBox = document.getElementById('mainSliderBox');
+    const rUi = document.getElementById('mainRangedUi');
+    const mUi = document.getElementById('mainMeleeUi');
+    
+    if (curWeaponMode === "ВРАГИ") { sBox.style.display = "none"; return; }
+    sBox.style.display = "flex";
+    
+    if (curWeaponMode === "ОРУЖИЕ БЛИЖНЕГО БОЯ") {
+        rUi.style.display = "none"; mUi.style.display = "block";
+        if (curWeaponData.n1 !== lastWeaponId) {
+            syncSliders('charge', 100);
+            lastWeaponId = curWeaponData.n1;
+        }
+    } else {
+        mUi.style.display = "none";
+        let falloff = curWeaponData.stats["ДИСТАНЦИЯ СПАДА УРОНА"];
+        if (falloff && falloff !== "-" && falloff.includes('/')) {
+            rUi.style.display = "block";
+            let parts = falloff.replace('М', '').trim().split('/');
+            let dStart = parseFloat(parts[0]), dEnd = parseFloat(parts[1]);
+            
+            // Записываем цифры в главное окно
+            document.getElementById('mainDistMin').innerHTML = `<span style="color: var(--accent)">${dStart}</span> <span style="color: var(--text-dim)">М</span>`;
+            document.getElementById('mainDistMax').innerHTML = `<span style="color: var(--accent)">${dEnd}</span> <span style="color: var(--text-dim)">М</span>`;
+            document.getElementById('mainDistSlider').min = dStart; 
+            document.getElementById('mainDistSlider').max = dEnd;
+            
+            // Записываем те же цифры в окно калькулятора (если он открыт)
+            let calcDist = document.getElementById('distSlider'); 
+            if (calcDist) { 
+                calcDist.min = dStart; 
+                calcDist.max = dEnd; 
+                let cMin = document.getElementById('distMinSpan');
+                let cMax = document.getElementById('distMaxSpan');
+                if (cMin) cMin.innerHTML = `<span style="color: var(--accent)">${dStart}</span> <span style="color: var(--text-dim)">М</span>`;
+                if (cMax) cMax.innerHTML = `<span style="color: var(--accent)">${dEnd}</span> <span style="color: var(--text-dim)">М</span>`;
+            }
+            
+            if (curWeaponData.n1 !== lastWeaponId) {
+                syncSliders('dist', dStart);
+                lastWeaponId = curWeaponData.n1;
+            }
+        } else {
+            rUi.style.display = "none"; sBox.style.display = "none";
+        }
+    }
+}
+
+// Главный показ карточки
+function showInfo(obj, cat) {
+    curWeaponMode = cat; 
+    curWeaponData = obj;
+    document.getElementById('n1').innerText = obj.n1;
+    document.getElementById('n2').innerText = obj.n2 || ""; 
+    document.getElementById('n3').innerText = obj.n3 || ""; 
+    
+    const mainImg = document.getElementById('mainImg');
+    mainImg.src = obj.img;
+    const flippedNames = ["WOX COMPACT", "ATTROC TITANIUM", "ISOCO STINGER"];
+    (flippedNames.includes(obj.n1)) ? mainImg.classList.add('flipped-weapon') : mainImg.classList.remove('flipped-weapon');
+
+    const dBox = document.getElementById('dangerLevelBox');
+    const dText = document.getElementById('dangerLevelText');
+    const dFrame = document.getElementById('dangerFrame');
+    
+    dFrame.className = 'inner-frame';
+    dBox.style.display = 'none';
+    document.documentElement.style.setProperty('--dc1', 'transparent');
+    document.documentElement.style.setProperty('--dc2', 'transparent');
+
+    if (cat === "ВРАГИ" && obj.stats["ОПАСНОСТЬ"]) {
+        dBox.style.display = 'block';
+        dText.innerText = obj.stats["ОПАСНОСТЬ"];
+        const getCol = (d) => { if (d.includes("НИЗК")) return "#4caf50"; if (d.includes("СРЕДНЕ")) return "#e65100"; if (d.includes("СРЕДН")) return "#ff9800"; if (d.includes("ОЧЕНЬ")) return "#b71c1c"; if (d.includes("ВЫСОК")) return "#f44336"; if (d.includes("ЭКСТР")) return "#aa00ff"; return "#ffffff"; };
+        
+        let parts = obj.stats["ОПАСНОСТЬ"].split('/').map(p => p.trim());
+        if (parts.length === 1) {
+            let col = getCol(parts[0]);
+            document.documentElement.style.setProperty('--dc1', col);
+            dFrame.classList.add('danger-single'); 
+            dText.style.color = col; dText.style.background = ''; dText.style.webkitTextFillColor = col;
+        } else {
+            let col1 = getCol(parts[0]), col2 = getCol(parts[1]);
+            document.documentElement.style.setProperty('--dc1', col1); document.documentElement.style.setProperty('--dc2', col2);
+            dFrame.classList.add('danger-dual'); 
+            dText.style.background = `linear-gradient(90deg, ${col1}, ${col2})`; dText.style.webkitBackgroundClip = "text"; dText.style.webkitTextFillColor = "transparent";
+        }
+    }
+    
+    setupMainSliders();
+    renderStatsGrid();
+    updateCalcByEnemy();
+}
+
+// Калькулятор 
+function updateCalcByEnemy() {
+    const enemySelect = document.getElementById('enemySelect');
+    if (!enemySelect || enemySelect.value === "-1") {
+        if(document.getElementById('calcEnemyBox')) document.getElementById('calcEnemyBox').style.display = "none";
+        if(document.getElementById('calcOutputs')) document.getElementById('calcOutputs').innerHTML = "";
+        return;
+    }
+
+    const enemy = database["ВРАГИ"][enemySelect.value];
+    if (!enemy) return;
+
+    let sleepBtn = document.getElementById('meleeSleep');
+    if (sleepBtn) {
+        if (typeof awakeEnemies !== 'undefined' && awakeEnemies.includes(enemy.n1)) {
+            sleepBtn.checked = false; sleepBtn.disabled = true; sleepBtn.parentElement.style.opacity = "0.4";
+        } else { sleepBtn.disabled = false; sleepBtn.parentElement.style.opacity = "1"; }
+    }
+
+    const outGrid = document.getElementById('calcOutputs');
+    document.getElementById('calcEnemyBox').style.display = "flex";
+
+    let enemyHp = parseFloat(enemy.stats["ЗДОРОВЬЕ"]) || 0;
+    let enemyStunHp = parseFloat(enemy.stats["СТОЙКОСТЬ"]) || 0;
+    let headMult = enemy.headMult || 1; 
+
+    let isMelee = (curWeaponMode === "ОРУЖИЕ БЛИЖНЕГО БОЯ");
+    let actionWord = isMelee ? "УДАРОВ" : "ПУЛЬ";
+    let actionWordGenitive = isMelee ? "ударов" : "пуль";
+    let hpLineText = (window.currentCalcPage === 2) ? `<span style="color: var(--text-dim)">СТОЙКОСТЬ: </span><span style="color: var(--accent)">${enemyStunHp}</span> <span style="color: var(--text-dim)">HP</span>` : `<span style="color: var(--text-dim)">ЗДОРОВЬЕ: </span><span style="color: var(--accent)">${enemyHp}</span> <span style="color: var(--text-dim)">HP</span>`;
+
+    document.getElementById('enemyFrameContent').innerHTML = `
+        <div class="scanner-grid"></div><div class="scanner-line"></div>
+        <img src="${enemy.img}" style="width:100%; height:80px; object-fit:contain; margin-bottom:6px; position:relative; z-index:2;">
+        <div style="font-size:14px; font-weight:900; position:relative; z-index:10;">${enemy.n1}</div>
+        <div style="font-size:10px; color:var(--text-dim); position:relative; z-index:10; margin-bottom:4px;">${enemy.n2 || ''}</div>
+        <div class="calc-legend">
+            <div class="legend-item"><div class="mini-box" style="background:rgba(220,50,50,0.6); border:1px solid #dc3232;"></div><span>ВАНШОТ</span></div>
+            <div class="legend-item"><div class="mini-box" style="background:rgba(50,150,255,0.6); border:1px solid #3296ff;"></div><span>СТАН</span></div>
+        </div>`;
+
+    let dmgHead = 0, dmgBody = 0, dmgBack = 0, dmgOcciput = 0, stunMult = 1;
+
+    if (isMelee) {
+        if(document.getElementById('meleeUi')) document.getElementById('meleeUi').style.display = "block";
+        if(document.getElementById('rangedUi')) document.getElementById('rangedUi').style.display = "none";
+        
+        let chargePct = parseFloat(document.getElementById('mainChargeSlider').value) / 100;
+        let baseMelee = parseFloat(parseMeleeValue(curWeaponData.stats["УРОН"] || "0", chargePct).replace(/[^\d.]/g, '')) || 0;
+        let curPrec = parseFloat(parseMeleeValue(curWeaponData.stats["ТОЧНОЕ ПОПАДАНИЕ"] || "1", chargePct).replace(/[^\d.]/g, '')) || 1;
+        let curBackBonus = parseFloat(parseMeleeValue(curWeaponData.stats["УДАР В СПИНУ"] || "1", chargePct).replace(/[^\d.]/g, '')) || 1;
+        let curSleepBonus = parseFloat(parseMeleeValue(curWeaponData.stats["УДАР ПО СПЯЩЕМУ"] || "1", chargePct).replace(/[^\d.]/g, '')) || 1;
+        stunMult = parseFloat(parseMeleeValue(curWeaponData.stats["ШОКОВЫЙ УРОН"] || "1", chargePct).replace(/[^\d.]/g, '')) || 1;
+        
+        let sleepMult = (document.getElementById('meleeSleep') && document.getElementById('meleeSleep').checked) ? curSleepBonus : 1;
+
+        dmgBody = baseMelee * sleepMult;
+        dmgBack = baseMelee * (2 * curBackBonus) * sleepMult;
+        dmgHead = (headMult === 1) ? dmgBody : (baseMelee * curPrec * headMult * sleepMult);
+        dmgOcciput = (headMult === 1) ? dmgBody * (2 * curBackBonus) : (dmgHead * (2 * curBackBonus));
+    } else {
+        if(document.getElementById('meleeUi')) document.getElementById('meleeUi').style.display = "none";
+        if(document.getElementById('rangedUi')) document.getElementById('rangedUi').style.display = "block";
+        
+        let baseDmg = typeof curWeaponData.stats["УРОН"] === 'string' ? parseFloat(curWeaponData.stats["УРОН"].replace(/[^\d.]/g, '')) : (curWeaponData.stats["УРОН"] || 0);
+        let distMult = 1.0;
+        let falloff = curWeaponData.stats["ДИСТАНЦИЯ СПАДА УРОНА"];
+        if (falloff && falloff !== "-" && falloff.includes('/')) {
+            let parts = falloff.replace('М', '').trim().split('/');
+            let dStart = parseFloat(parts[0]), dEnd = parseFloat(parts[1]);
+            let currentDist = parseFloat(document.getElementById('mainDistSlider').value);
+            distMult = Math.max(0.1, Math.min(1.0, 1.0 - 0.9 * ((currentDist - dStart) / (dEnd - dStart))));
+        }
+        baseDmg *= distMult;
+
+        let weakMatch = curWeaponData.stats["ТОЧНОЕ ПОПАДАНИЕ"] ? curWeaponData.stats["ТОЧНОЕ ПОПАДАНИЕ"].match(/[x×]([\d.]+)/) : null;
+        let weakMult = weakMatch ? parseFloat(weakMatch[1]) : 1;
+        let stunMatch = curWeaponData.stats["ШОКОВЫЙ УРОН"] ? curWeaponData.stats["ШОКОВЫЙ УРОН"].match(/[x×]([\d.]+)/) : null;
+        stunMult = stunMatch ? parseFloat(stunMatch[1]) : 1;
+
+        dmgBody = baseDmg;
+        dmgBack = baseDmg * 2;
+        dmgHead = (headMult === 1) ? baseDmg : (baseDmg * weakMult * headMult);
+        dmgOcciput = dmgHead * 2;
+    }
+
+    function getPageValue(dmg, bodyPart) {
+        let stunD = dmg * stunMult;
+        let killS = (dmg > 0) ? Math.ceil(enemyHp / dmg) : "-";
+        let stunS = (stunD > 0) ? Math.ceil(enemyStunHp / stunD) : "-";
+        let pC = (killS === 1) ? "pulse-kill" : (stunS === 1 ? "pulse-stun" : "");
+        let title = (window.currentCalcPage === 0) ? `Урон в ${bodyPart}` : ((window.currentCalcPage === 1) ? `Количество ${actionWordGenitive} для убийства в ${bodyPart}` : `Количество ${actionWordGenitive} до стана в ${bodyPart}`);
+        let cont = (window.currentCalcPage === 0) ? dmg.toFixed(2) : ((window.currentCalcPage === 1) ? `${killS} <span style="font-size: 9px; color: var(--text-dim);">(${dmg.toFixed(2)})</span>` : (killS === 1 ? "-" : `${stunS} <span style="font-size: 9px; color: var(--text-dim);">(${stunD.toFixed(2)})</span>`));
+        return `<div title="${title}">${(pC && cont !== "-") ? `<span class="${pC}">${cont}</span>` : cont}</div>`;
+    }
+
+    outGrid.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; padding-bottom: 4px; user-select:none;">
+            <div style="cursor: pointer; padding: 2px 8px; color: var(--text-dim); border: 1px solid var(--text-dim); border-radius: 3px;" onclick="window.switchCalcPage(-1)">&#9664;</div>
+            <div style="font-weight: 900; color: var(--accent); text-align: center; letter-spacing:0.5px;">${["УРОН", `КОЛИЧЕСТВО ${actionWord} ДЛЯ УБИЙСТВА`, `КОЛИЧЕСТВО ${actionWord} ДО СТАНА`][window.currentCalcPage]}</div>
+            <div style="cursor: pointer; padding: 2px 8px; color: var(--text-dim); border: 1px solid var(--text-dim); border-radius: 3px;" onclick="window.switchCalcPage(1)">&#9654;</div>
+        </div>
+        <div style="font-size: 14px; font-weight: 900; margin-bottom: 8px; text-align: center;">${hpLineText}</div>
+        <div class="visual-model">
+            <div class="dmg-point dmg-head">${getPageValue(dmgHead, "голову")}</div>
+            <div class="dmg-point dmg-body">${getPageValue(dmgBody, "тело")}</div>
+            <div class="dmg-point dmg-back">${getPageValue(dmgBack, "спину")}</div>
+            <div class="dmg-point dmg-occiput">${getPageValue(dmgOcciput, "затылок")}</div>
         </div>`;
 }
 
@@ -536,84 +897,6 @@ function renderList(cat) {
     });
 }
 
-function showInfo(obj, cat) {
-    curWeaponMode = cat; 
-    curWeaponData = obj;
-    document.getElementById('n1').innerText = obj.n1;
-    document.getElementById('n2').innerText = obj.n2 || ""; 
-    document.getElementById('n3').innerText = obj.n3 || ""; 
-    
-    const mainImg = document.getElementById('mainImg');
-    mainImg.src = obj.img;
-
-    const flippedNames = ["WOX COMPACT", "ATTROC TITANIUM", "ISOCO STINGER"];
-    if (flippedNames.includes(obj.n1)) {
-        mainImg.classList.add('flipped-weapon');
-    } else {
-        mainImg.classList.remove('flipped-weapon');
-    }
-
-    const grid = document.getElementById('statsGrid'); 
-    grid.innerHTML = '';
-
-    const dangerBox = document.getElementById('dangerLevelBox');
-    const dangerText = document.getElementById('dangerLevelText');
-    const dFrame = document.getElementById('dangerFrame');
-    
-    dFrame.classList.remove('danger-single', 'danger-dual');
-    dFrame.style.removeProperty('--danger-color-1');
-    dFrame.style.removeProperty('--danger-color-2');
-    dangerBox.style.display = 'none';
-    dangerText.style.background = '';
-    dangerText.style.webkitTextFillColor = '';
-    dangerText.style.color = 'var(--accent)';
-
-    let statsToRender = { ...obj.stats };
-
-    if (cat === "ВРАГИ" && statsToRender["ОПАСНОСТЬ"]) {
-        const dangerRaw = statsToRender["ОПАСНОСТЬ"];
-        delete statsToRender["ОПАСНОСТЬ"];
-
-        dangerBox.style.display = 'block';
-        dangerText.innerText = dangerRaw;
-
-        const getDColor = (d) => {
-            if (d.includes("НИЗКИЙ")) return "#4caf50";
-            if (d.includes("СРЕДНЕ-ВЫСОКИЙ")) return "#e65100";
-            if (d.includes("СРЕДНИЙ")) return "#ff9800";
-            if (d.includes("ОЧЕНЬ ВЫСОКИЙ")) return "#b71c1c";
-            if (d.includes("ВЫСОКИЙ")) return "#f44336";
-            if (d.includes("ЭКСТР")) return "#000000";
-            return "#ffffff";
-        };
-
-        let parts = dangerRaw.split('/').map(p => p.trim());
-
-        if (parts.length === 1) {
-            let col = getDColor(parts[0]);
-            dFrame.style.setProperty('--danger-color-1', col);
-            dFrame.classList.add('danger-single');
-            dangerText.style.color = col;
-        } else if (parts.length >= 2) {
-            let col1 = getDColor(parts[0]);
-            let col2 = getDColor(parts[1]);
-            dFrame.style.setProperty('--danger-color-1', col1);
-            dFrame.style.setProperty('--danger-color-2', col2);
-            dFrame.classList.add('danger-dual');
-            
-            dangerText.style.background = `linear-gradient(90deg, ${col1} 0%, ${col2} 100%)`;
-            dangerText.style.webkitBackgroundClip = "text";
-            dangerText.style.webkitTextFillColor = "transparent";
-        }
-    }
-
-    Object.entries(statsToRender).forEach(([name, val]) => { 
-        grid.innerHTML += createStatCard(name, val); 
-    });
-    
-    updateCalcByEnemy();
-}
-
 function parseDmg(val) {
     if (typeof val === 'number') return val;
     let match = val.toString().match(/([\d\.]+)\s*[x×]/);
@@ -663,190 +946,6 @@ function autoScaleApp() {
 
 window.addEventListener('resize', autoScaleApp);
 autoScaleApp();
-
-function updateCalcByEnemy() {
-    const enemySelect = document.getElementById('enemySelect');
-    if (!enemySelect) return;
-
-    const enemyIdx = enemySelect.value;
-    if (enemyIdx === "-1") {
-        document.getElementById('calcEnemyBox').style.display = "none";
-        document.getElementById('meleeUi').style.display = "none";
-        document.getElementById('rangedUi').style.display = "none";
-        document.getElementById('calcOutputs').innerHTML = "";
-        return;
-    }
-
-    const enemy = database["ВРАГИ"][enemyIdx];
-    if (!enemy) return;
-
-    let sleepBtn = document.getElementById('meleeSleep');
-    if (sleepBtn) {
-        sleepBtn.parentElement.style.fontSize = "10px";
-        if (typeof awakeEnemies !== 'undefined' && awakeEnemies.includes(enemy.n1)) {
-            sleepBtn.checked = false; 
-            sleepBtn.disabled = true;
-            sleepBtn.parentElement.style.opacity = "0.4";
-        } else {
-            sleepBtn.disabled = false;
-            sleepBtn.parentElement.style.opacity = "1";
-        }
-    }
-
-    const outGrid = document.getElementById('calcOutputs');
-    const cBox = document.getElementById('calcEnemyBox');
-    const mUi = document.getElementById('meleeUi');
-    const rUi = document.getElementById('rangedUi');
-    
-    outGrid.innerHTML = '';
-    cBox.style.display = "flex";
-
-    const activeTabBtn = document.querySelector('.tab-btn.active');
-    const activeTab = activeTabBtn ? activeTabBtn.innerText : "";
-
-    let enemyHp = parseFloat(enemy.stats["ЗДОРОВЬЕ"]) || 0;
-    let enemyStunHp = parseFloat(enemy.stats["СТОЙКОСТЬ"]) || 0;
-    let headMult = enemy.headMult || 1; 
-
-    let isMelee = (activeTab === "ОРУЖИЕ БЛИЖНЕГО БОЯ");
-    let actionWord = isMelee ? "УДАРОВ" : "ПУЛЬ";
-    let actionWordGenitive = isMelee ? "ударов" : "пуль";
-    
-    let pageTitles = [
-        "УРОН",
-        `КОЛИЧЕСТВО ${actionWord} ДЛЯ УБИЙСТВА`,
-        `КОЛИЧЕСТВО ${actionWord} ДО СТАНА`
-    ];
-
-    let hpLineText = "";
-    if (window.currentCalcPage === 2) {
-        hpLineText = `<span style="color: var(--text-dim)">СТОЙКОСТЬ: </span><span style="color: var(--accent)">${enemyStunHp}</span> <span style="color: var(--text-dim)">HP</span>`;
-    } else {
-        hpLineText = `<span style="color: var(--text-dim)">ЗДОРОВЬЕ: </span><span style="color: var(--accent)">${enemyHp}</span> <span style="color: var(--text-dim)">HP</span>`;
-    }
-
-    document.getElementById('enemyFrameContent').innerHTML = `
-        <div class="scanner-grid"></div>
-        <div class="scanner-line"></div>
-        <img src="${enemy.img}" style="width:100%; height:80px; object-fit:contain; margin-bottom:6px; position:relative; z-index:2;">
-        <div style="font-size:14px; font-weight:900; position:relative; z-index:10;">${enemy.n1}</div>
-        <div style="font-size:10px; color:var(--text-dim); position:relative; z-index:10; margin-bottom:4px;">${enemy.n2 || ''}</div>
-        
-        <div class="calc-legend">
-            <div class="legend-item"><div class="mini-box" style="background:rgba(220,50,50,0.6); border:1px solid #dc3232;"></div><span>ВАНШОТ</span></div>
-            <div class="legend-item"><div class="mini-box" style="background:rgba(50,150,255,0.6); border:1px solid #3296ff;"></div><span>СТАН</span></div>
-        </div>
-    `;
-
-    let dmgHead = 0, dmgBody = 0, dmgBack = 0, dmgOcciput = 0;
-    let stunMult = 1;
-
-    if (isMelee) {
-        if (mUi) mUi.style.display = "block";
-        if (rUi) rUi.style.display = "none";
-        
-        document.getElementById('meleeCharge').previousElementSibling.innerHTML = 
-            `<span style="color:var(--accent)">0</span><span style="color:var(--text-dim)">%</span>`;
-        document.getElementById('meleeCharge').nextElementSibling.innerHTML = 
-            `<span style="color:var(--accent)">100</span><span style="color:var(--text-dim)">%</span>`;
-
-        let chargeVal = parseFloat(document.getElementById('meleeCharge').value);
-        document.getElementById('chargeValDisplay').innerText = chargeVal;
-        let chargePct = chargeVal / 100;
-        let baseMelee = (curWeaponData.meleeData.fast || 0) + ((curWeaponData.meleeData.charged || 0) - (curWeaponData.meleeData.fast || 0)) * chargePct;
-        let curPrec = (curWeaponData.meleeData.precFast || 1) + ((curWeaponData.meleeData.precCharged || 1) - (curWeaponData.meleeData.precFast || 1)) * chargePct; 
-        let curBackBonus = (curWeaponData.meleeData.backFast || 1) + ((curWeaponData.meleeData.backCharged || 1) - (curWeaponData.meleeData.backFast || 1)) * chargePct; 
-        let sleepMult = document.getElementById('meleeSleep').checked ? ((curWeaponData.meleeData.sleepFast || 1) + ((curWeaponData.meleeData.sleepCharged || 1) - (curWeaponData.meleeData.sleepFast || 1)) * chargePct) : 1;
-        let stunMatch = curWeaponData.stats["ШОКОВЫЙ УРОН"] ? curWeaponData.stats["ШОКОВЫЙ УРОН"].match(/[x×]([\d.]+)/) : null;
-        stunMult = stunMatch ? parseFloat(stunMatch[1]) : 1;
-        
-        dmgBody = baseMelee * sleepMult;
-        dmgBack = baseMelee * (2 * curBackBonus) * sleepMult;
-        dmgHead = (headMult === 1) ? dmgBody : (baseMelee * curPrec * headMult * sleepMult);
-        dmgOcciput = (headMult === 1) ? dmgBody * (2 * curBackBonus) : (dmgHead * (2 * curBackBonus));
-    } else {
-        if (mUi) mUi.style.display = "none";
-        if (rUi) rUi.style.display = "block";
-        let baseDmg = parseDmg(curWeaponData.stats["УРОН"]);
-        
-        let distSlider = document.getElementById('distSlider');
-        let falloff = curWeaponData.stats["ДИСТАНЦИЯ СПАДА УРОНА"];
-        if (falloff && falloff !== "-") {
-            let parts = falloff.replace('М', '').trim().split('/');
-            let dStart = parseFloat(parts[0]), dEnd = parseFloat(parts[1]);
-            document.getElementById('distContainer').style.display = "block";
-            document.getElementById('distMinSpan').innerHTML = `<span style="color: var(--accent)">${dStart}</span> <span style="color: var(--text-dim)">М</span>`;
-            document.getElementById('distMaxSpan').innerHTML = `<span style="color: var(--accent)">${dEnd}</span> <span style="color: var(--text-dim)">М</span>`;
-            
-            if (curWeaponData.n1 !== window.lastWeaponId) {
-                window.lastWeaponId = curWeaponData.n1;
-                distSlider.min = dStart;
-                distSlider.max = dEnd;
-                distSlider.value = dStart;
-            }
-            let currentDist = parseFloat(distSlider.value);
-            let distMult = Math.max(0.1, Math.min(1.0, 1.0 - 0.9 * ((currentDist - dStart) / (dEnd - dStart))));
-            baseDmg *= distMult;
-            document.getElementById('distValDisplay').innerText = currentDist;
-        } else {
-            document.getElementById('distContainer').style.display = "none";
-        }
-
-        let weakMatch = curWeaponData.stats["ТОЧНОЕ ПОПАДАНИЕ"] ? curWeaponData.stats["ТОЧНОЕ ПОПАДАНИЕ"].match(/[x×]([\d.]+)/) : null;
-        let weakMult = weakMatch ? parseFloat(weakMatch[1]) : 1;
-        let stunMatch = curWeaponData.stats["ШОКОВЫЙ УРОН"] ? curWeaponData.stats["ШОКОВЫЙ УРОН"].match(/[x×]([\d.]+)/) : null;
-        stunMult = stunMatch ? parseFloat(stunMatch[1]) : 1;
-
-        dmgBody = baseDmg;
-        dmgBack = baseDmg * 2;
-        dmgHead = (headMult === 1) ? baseDmg : (baseDmg * weakMult * headMult);
-        dmgOcciput = dmgHead * 2;
-    }
-
-    function getPageValue(dmg, bodyPart) {
-        let stunD = dmg * stunMult;
-        let killS = (dmg > 0) ? Math.ceil(enemyHp / dmg) : "-";
-        let stunS = (stunD > 0) ? Math.ceil(enemyStunHp / stunD) : "-";
-
-        let pulseClass = "";
-        if (killS === 1) pulseClass = "pulse-kill";
-        else if (stunS === 1) pulseClass = "pulse-stun";
-
-        let titleText = "";
-        let content = "";
-
-        if (window.currentCalcPage === 0) {
-            titleText = `Урон в ${bodyPart}`;
-            content = dmg.toFixed(2);
-        } else if (window.currentCalcPage === 1) {
-            titleText = `Количество ${actionWordGenitive} для убийства в ${bodyPart}`;
-            content = `${killS} <span style="font-size: 9px; color: var(--text-dim);">(${dmg.toFixed(2)})</span>`;
-        } else {
-            titleText = `Количество ${actionWordGenitive} до стана в ${bodyPart}`;
-            if (killS === 1) content = "-"; 
-            else content = `${stunS} <span style="font-size: 9px; color: var(--text-dim);">(${stunD.toFixed(2)})</span>`;
-        }
-
-        let innerHtml = pulseClass && content !== "-" ? `<span class="${pulseClass}">${content}</span>` : content;
-        return `<div title="${titleText}">${innerHtml}</div>`;
-    }
-
-    outGrid.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 10px; padding-bottom: 4px; user-select:none;">
-            <div style="cursor: pointer; padding: 2px 8px; color: var(--text-dim); border: 1px solid var(--text-dim); border-radius: 3px;" onclick="window.switchCalcPage(-1)">&#9664;</div>
-            <div style="font-weight: 900; color: var(--accent); text-align: center; letter-spacing:0.5px;">${pageTitles[window.currentCalcPage]}</div>
-            <div style="cursor: pointer; padding: 2px 8px; color: var(--text-dim); border: 1px solid var(--text-dim); border-radius: 3px;" onclick="window.switchCalcPage(1)">&#9654;</div>
-        </div>
-        <div style="font-size: 14px; font-weight: 900; margin-bottom: 8px; text-align: center;">${hpLineText}</div>
-        <div class="visual-model">
-            <div class="dmg-point dmg-head">${getPageValue(dmgHead, "голову")}</div>
-            <div class="dmg-point dmg-body">${getPageValue(dmgBody, "тело")}</div>
-            <div class="dmg-point dmg-back">${getPageValue(dmgBack, "спину")}</div>
-            <div class="dmg-point dmg-occiput">${getPageValue(dmgOcciput, "затылок")}</div>
-        </div>
-    `;
-}
-
 
 const sel = document.getElementById('enemySelect');
 sel.innerHTML = '<option value="-1">ВЫБЕРИТЕ ВРАГА</option>';
